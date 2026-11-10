@@ -3,6 +3,7 @@ import { courses, getAllClasses, totalClasses } from '../config/courses.js';
 import { AdminLayout } from '../components/AdminLayout.jsx';
 import { createPeriod, createScheduleBook, getSchedule, scheduleKey } from '../services/schedule-model.js';
 import { validateDay, validateSchedule } from '../services/schedule-validation.js';
+import { replacePeriodWithSplit, updatePeriodRecord } from '../services/schedule-editing.js';
 import { Dashboard } from './Dashboard.jsx';
 import { ImportPage } from './ImportPage.jsx';
 import { ScheduleReviewPage } from './ScheduleReviewPage.jsx';
@@ -62,8 +63,42 @@ export function AdminApplication({ admin, accessToken, onLogout }) {
   const changePeriod = (dayKey, periodId, field, value) => updateSchedule((current) => ({
     ...current,
     revisao: 'nao_revisado',
-    dias: { ...current.dias, [dayKey]: { ...current.dias[dayKey], situacao: 'com_aulas', compartilhamento: null, revisao: 'nao_revisado', periodos: current.dias[dayKey].periodos.map((period) => period.id === periodId ? { ...period, [field]: value } : period) } },
+    dias: { ...current.dias, [dayKey]: { ...current.dias[dayKey], situacao: 'com_aulas', compartilhamento: null, revisao: 'nao_revisado', periodos: current.dias[dayKey].periodos.map((period) => period.id === periodId ? updatePeriodRecord(period, { [field]: value, ...(field === 'inicio' ? { inicioPendente: false } : {}), ...(field === 'fim' ? { fimPendente: false } : {}) }) : period) } },
   }));
+
+  const editPeriod = (dayKey, periodId, changes) => {
+    let result = { error: '' };
+    setSchedules((current) => {
+      const key = scheduleKey(selectedCourse, selectedClass);
+      const currentDay = current[key].dias[dayKey];
+      const period = currentDay.periodos.find((candidate) => candidate.id === periodId);
+      if (!period) { result = { error: 'Período não encontrado.' }; return current; }
+      const nextPeriod = updatePeriodRecord(period, { ...changes, ...(Object.prototype.hasOwnProperty.call(changes, 'inicio') ? { inicioPendente: false } : {}), ...(Object.prototype.hasOwnProperty.call(changes, 'fim') ? { fimPendente: false } : {}) });
+      const nextDay = { ...currentDay, situacao: 'com_aulas', compartilhamento: null, revisao: 'nao_revisado', periodos: currentDay.periodos.map((candidate) => candidate.id === periodId ? nextPeriod : candidate) };
+      const errors = validateDay(nextDay, current, key, dayKey).filter((message) => !(nextPeriod.estado !== 'vazio_documento' && ['nao_reconhecido', 'parcial'].includes(nextPeriod.estado) && message.includes('informe a disciplina')));
+      if (errors.length) { result = { error: errors[0] }; return current; }
+      setHasChanges(true);
+      return { ...current, [key]: { ...current[key], revisao: 'nao_revisado', dias: { ...current[key].dias, [dayKey]: nextDay } } };
+    });
+    return result;
+  };
+
+  const splitPeriod = (dayKey, periodId, slots) => {
+    let result = { error: '' };
+    setSchedules((current) => {
+      const key = scheduleKey(selectedCourse, selectedClass);
+      const currentDay = current[key].dias[dayKey];
+      try {
+        const periods = replacePeriodWithSplit(currentDay.periodos, periodId, slots);
+        const nextDay = { ...currentDay, situacao: 'com_aulas', compartilhamento: null, revisao: 'nao_revisado', periodos };
+        const errors = validateDay(nextDay, current, key, dayKey).filter((message) => !message.includes('ainda não foi revisado'));
+        if (errors.length) { result = { error: errors[0] }; return current; }
+        setHasChanges(true);
+        return { ...current, [key]: { ...current[key], revisao: 'nao_revisado', dias: { ...current[key].dias, [dayKey]: nextDay } } };
+      } catch (error) { result = { error: error.message }; return current; }
+    });
+    return result;
+  };
 
   const shareDay = (dayKey, source) => {
     const sourceSchedule = getSchedule(schedules, source.course, source.turma);
@@ -96,7 +131,7 @@ export function AdminApplication({ admin, accessToken, onLogout }) {
     const currentDay = schedule.dias[dayKey];
     const errors = validateDay(currentDay, schedules, scheduleKey(selectedCourse, selectedClass), dayKey);
     if (errors.length || currentDay.avisos?.some((item) => !item.resolvido)) return;
-    updateSchedule((current) => ({ ...current, revisao: 'revisado', dias: { ...current.dias, [dayKey]: { ...current.dias[dayKey], revisao: 'revisado' } } }));
+    updateSchedule((current) => ({ ...current, revisao: 'revisado', dias: { ...current.dias, [dayKey]: { ...current.dias[dayKey], revisao: 'revisado', periodos: current.dias[dayKey].periodos.map((period) => ({ ...period, revisao: 'revisado' })) } } }));
   };
 
   const resolveWarning = (dayKey, warningId) => updateSchedule((current) => ({
@@ -124,7 +159,7 @@ export function AdminApplication({ admin, accessToken, onLogout }) {
     ? <Dashboard totalClasses={totalClasses} onNavigate={setActiveView} />
     : activeView === 'import'
       ? <ImportPage courses={courses} selectedCourse={selectedCourse} accessToken={accessToken} onCourseChange={changeCourse} file={selectedFile} onFileChange={setSelectedFile} onRemoveFile={() => setSelectedFile(null)} onContinue={() => setActiveView('review')} onImportExtracted={importExtractedSchedules} />
-      : <ScheduleReviewPage courses={courses} classes={selectedCourseData.classes} selectedCourse={selectedCourse} selectedClass={selectedClass} onCourseChange={changeCourse} onClassChange={setSelectedClass} schedule={schedule} schedules={schedules} sources={sources} file={selectedFile} validation={validation} onDayChange={changeDay} onPeriodChange={changePeriod} onAddPeriod={addPeriod} onRemovePeriod={removePeriod} onShare={shareDay} onRemoveShare={removeShare} onReviewDay={reviewDay} onResolveWarning={resolveWarning} onImportDraft={importDraft} onExported={() => setHasChanges(false)} onImported={() => setHasChanges(true)} hasChanges={hasChanges} />;
+      : <ScheduleReviewPage courses={courses} classes={selectedCourseData.classes} selectedCourse={selectedCourse} selectedClass={selectedClass} onCourseChange={changeCourse} onClassChange={setSelectedClass} schedule={schedule} schedules={schedules} sources={sources} file={selectedFile} validation={validation} onDayChange={changeDay} onPeriodChange={changePeriod} onEditPeriod={editPeriod} onSplitPeriod={splitPeriod} onAddPeriod={addPeriod} onRemovePeriod={removePeriod} onShare={shareDay} onRemoveShare={removeShare} onReviewDay={reviewDay} onResolveWarning={resolveWarning} onImportDraft={importDraft} onExported={() => setHasChanges(false)} onImported={() => setHasChanges(true)} hasChanges={hasChanges} />;
 
   return <AdminLayout admin={admin} activeView={activeView} onNavigate={setActiveView} onLogout={onLogout}>{content}</AdminLayout>;
 }

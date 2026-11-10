@@ -168,10 +168,13 @@ button.workflow-card { cursor: pointer; font: inherit; }
 .period-row { align-items: end; background: #fbfefc; border: 1px solid var(--color-border); border-radius: 0.7rem; display: grid; gap: 0.7rem; grid-template-columns: 180px 1fr auto; padding: 0.75rem; }
 .period-row__time, .period-row__fields { display: grid; gap: 0.5rem; }
 .period-row__time { grid-template-columns: 1fr 1fr; }
-.period-row__fields { grid-template-columns: 1.5fr 1fr 0.8fr; }
+.period-row__fields { grid-template-columns: 1.25fr 1.5fr 1fr 0.8fr; }
 .period-row label { color: var(--color-muted); display: flex; flex-direction: column; font-size: 0.63rem; font-weight: 700; gap: 0.25rem; }
 .period-row__fields input, .period-row__time input { min-height: 2.1rem; padding: 0.4rem; }
+.period-row__actions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; }
 .icon-button { background: transparent; border: 1px solid var(--color-border); border-radius: 0.45rem; color: #a74e44; cursor: pointer; font-size: 1.1rem; height: 2.1rem; width: 2.1rem; }
+.icon-button--edit { color: var(--color-dark); }
+.split-button { font-size: 0.68rem; min-height: 2.1rem; padding: 0.35rem 0.55rem; }
 .add-period-button { align-self: start; margin-top: 0.25rem; }
 .period-empty, .no-classes-note, .inherited-note { background: #f7faf8; border-radius: 0.55rem; color: var(--color-muted); font-size: 0.75rem; line-height: 1.5; padding: 0.75rem; }
 .inherited-note { background: #eef6fa; color: #356b8d; }
@@ -243,5 +246,21 @@ button.workflow-card { cursor: pointer; font: inherit; }
 .extraction-class-list { display: grid; gap: 0.5rem; }
 .extraction-class-list label { display: flex; gap: 0.55rem; align-items: center; padding: 0.65rem; border: 1px solid #d1d5db; border-radius: 0.5rem; }
 .period-source-note { grid-column: 1 / -1; color: var(--color-muted); font-size: 0.72rem; }
+.dialog-backdrop { align-items: center; background: rgba(13, 48, 38, 0.42); display: flex; inset: 0; justify-content: center; padding: 1rem; position: fixed; z-index: 20; }
+.modal-card { background: var(--color-white); border-radius: 1rem; box-shadow: 0 1rem 3rem rgba(13, 48, 38, 0.22); max-height: calc(100vh - 2rem); max-width: 620px; overflow: auto; padding: 1.25rem; width: 100%; }
+.modal-card__header { align-items: flex-start; display: flex; justify-content: space-between; margin-bottom: 1rem; }
+.modal-card h3 { color: var(--color-text); font-size: 1.15rem; }
+.modal-close { color: var(--color-muted); }
+.modal-form { display: grid; gap: 0.85rem; }
+.modal-form label, .manual-split label { color: var(--color-text); display: flex; flex-direction: column; font-size: 0.72rem; font-weight: 750; gap: 0.35rem; }
+.modal-form input, .modal-form select, .manual-split input { background: var(--color-white); border: 1px solid var(--color-border); border-radius: 0.5rem; min-height: 2.4rem; padding: 0.5rem; }
+.modal-form__grid { display: grid; gap: 0.65rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 0.35rem; }
+.modal-help { color: var(--color-muted); font-size: 0.78rem; line-height: 1.5; margin-bottom: 0.9rem; }
+.split-options { display: grid; gap: 0.5rem; }
+.split-option { align-items: center; background: #f7faf8; border: 1px solid var(--color-border); border-radius: 0.55rem; display: flex; gap: 0.6rem; padding: 0.7rem; }
+.split-option span { display: flex; flex-direction: column; gap: 0.2rem; }
+.split-option small { color: var(--color-muted); }
+.manual-split { display: grid; gap: 0.7rem; }
 .extraction-diagnostics { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .extraction-diagnostics span, .extraction-diagnostics strong { background: #f7faf8; border-radius: 0.45rem; padding: 0.45rem 0.6rem; }

@@ -29,6 +29,8 @@ export const createPeriod = () => ({
   sala: '',
   paginaFonte: null,
   incertezas: [],
+  revisao: 'nao_revisado',
+  origemEdicao: 'manual',
 });
 
 export const createEmptyDay = () => ({

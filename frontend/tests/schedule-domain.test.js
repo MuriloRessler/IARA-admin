@@ -4,6 +4,7 @@ import { parseDraft, serializeDraft } from '../src/services/drafts.js';
 import { formatScheduleText } from '../src/services/schedule-format.js';
 import { createEmptySchedule, scheduleKey } from '../src/services/schedule-model.js';
 import { validateSchedule } from '../src/services/schedule-validation.js';
+import { replacePeriodWithSplit, updatePeriodRecord } from '../src/services/schedule-editing.js';
 
 const scheduleWithConfirmedDays = (course = 'Informática', classCode = '61 1') => {
   const schedule = createEmptySchedule(course, classCode);
@@ -103,5 +104,34 @@ describe('catalog and schedule domain', () => {
     expect(parsed.schedules['Informática::61 1'].dias.segunda.periodos[0].disciplina).toBe('Matemática');
     expect(() => parseDraft('{"version":99,"schedules":{}}')).toThrow('versão não suportada');
     expect(() => parseDraft('{"version":1,"schedules":{"bad":{"curso":"X"}}}')).toThrow('Turma inválida');
+  });
+
+  it('edits only the selected period and invalidates its review', () => {
+    const periods = [
+      { id: 'one', posicao: 1, inicio: '07:30', fim: '08:20', disciplina: 'Programação', revisao: 'revisado' },
+      { id: 'two', posicao: 2, inicio: '08:20', fim: '09:10', disciplina: 'Programação', revisao: 'revisado' },
+      { id: 'three', posicao: 3, inicio: '09:10', fim: '10:10', disciplina: 'Programação', revisao: 'revisado' },
+      { id: 'four', posicao: 4, inicio: '10:10', fim: '11:00', disciplina: 'Programação', revisao: 'revisado' },
+    ];
+    const next = periods.map((period) => period.id === 'three' ? updatePeriodRecord(period, { disciplina: 'Química' }) : period);
+    expect(next[2].disciplina).toBe('Química');
+    expect(next[2].revisao).toBe('nao_revisado');
+    expect(next[0]).toEqual(periods[0]);
+    expect(next[1]).toEqual(periods[1]);
+    expect(next[3]).toEqual(periods[3]);
+  });
+
+  it('splits a grouped period into independent cells without duplicates', () => {
+    const periods = [{ id: 'grouped', posicao: 2, inicio: '08:20', fim: '11:00', disciplina: 'Programação', professor: 'Ana', sala: 'A1' }];
+    const next = replacePeriodWithSplit(periods, 'grouped', [
+      { posicao: 2, inicio: '08:20', fim: '09:10' },
+      { posicao: 3, inicio: '09:10', fim: '10:10' },
+      { posicao: 4, inicio: '10:10', fim: '11:00' },
+      { posicao: 5, inicio: '11:00', fim: '11:45' },
+    ]);
+    expect(next).toHaveLength(4);
+    expect(next.map((period) => period.posicao)).toEqual([2, 3, 4, 5]);
+    expect(next.map((period) => period.disciplina)).toEqual(['Programação', 'Programação', 'Programação', 'Programação']);
+    expect(new Set(next.map((period) => period.id)).size).toBe(4);
   });
 });

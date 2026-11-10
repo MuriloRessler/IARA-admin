@@ -36,9 +36,37 @@ const resolveState = (rawPosition) => {
   return rawPosition.disciplina ? 'reconhecido' : 'nao_reconhecido';
 };
 
+const expandAssociatedPositions = (rawPositions, profile) => rawPositions.flatMap((rawPosition) => {
+  const associated = [...new Set((rawPosition.posicoesAssociadas || []).filter((position) => Number.isInteger(position)))];
+  if (associated.length <= 1 || !profile) {
+    return [{ ...rawPosition, _blockWarning: associated.length > 1 ? 'Bloco visual não dividido automaticamente: o perfil de horários não foi confirmado.' : null }];
+  }
+  return associated.map((position) => ({
+    ...rawPosition,
+    posicao: position,
+    inicio: getPositionStart(profile, position) || rawPosition.inicio,
+    fim: getTerminalEnd(profile, position) || profile.starts?.[position] || '',
+    posicoesAssociadas: [position],
+    origemNormalizacao: 'divisao_estrutural',
+  }));
+});
+
+const hasPotentialGroupedInterval = (rawPosition, profile) => {
+  if (rawPosition.posicoesAssociadas?.length || !validTime(rawPosition.inicio) || !validTime(rawPosition.fim)) return false;
+  const [startHour, startMinute] = rawPosition.inicio.split(':').map(Number);
+  const [endHour, endMinute] = rawPosition.fim.split(':').map(Number);
+  const duration = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+  if (!profile) return duration >= 100;
+  const startIndex = profile.starts.indexOf(rawPosition.inicio);
+  const endIndex = profile.starts.indexOf(rawPosition.fim);
+  const terminalIndex = Object.entries(profile.terminalEnds || {}).find(([, end]) => end === rawPosition.fim)?.[0];
+  const effectiveEndIndex = endIndex >= 0 ? endIndex : terminalIndex ? Number(terminalIndex) - 1 : -1;
+  return startIndex >= 0 && effectiveEndIndex - startIndex >= 2;
+};
+
 const normalizeDay = ({ rawDay = {}, dayKey, profile, scheduleId }) => {
   const rawPositions = rawDay.posicoes || rawDay.periodos || [];
-  const periods = rawPositions.map((rawPosition, index) => {
+  const periods = expandAssociatedPositions(rawPositions, profile).map((rawPosition, index) => {
     const position = Number.isInteger(rawPosition.posicao) ? rawPosition.posicao : index + 1;
     const estado = resolveState(rawPosition);
     const configuredStart = getPositionStart(profile, position);
@@ -56,6 +84,8 @@ const normalizeDay = ({ rawDay = {}, dayKey, profile, scheduleId }) => {
       sala: rawPosition.sala || '',
       paginaFonte: rawPosition.pagina || null,
       incertezas: rawPosition.incertezas || [],
+      revisao: 'nao_revisado',
+      origemEdicao: rawPosition.origemNormalizacao ? 'normalizacao' : 'extracao',
       inicioPendente: estado !== 'vazio_documento' && !inicio,
       fimPendente: estado !== 'vazio_documento' && !fim,
     };
@@ -66,6 +96,8 @@ const normalizeDay = ({ rawDay = {}, dayKey, profile, scheduleId }) => {
     if (rawPosition.fim && !validTime(rawPosition.fim) && !configuredEnd) messages.push('Horário de término ilegível ou inválido.');
     if (estado === 'nao_reconhecido' || estado === 'parcial') messages.push('A posição foi preservada, mas exige conferência humana.');
     if (!period.disciplina && estado !== 'vazio_documento') messages.push('Disciplina não reconhecida; informe-a na conferência.');
+    if (rawPosition._blockWarning) messages.push(rawPosition._blockWarning);
+    if (hasPotentialGroupedInterval(rawPosition, profile)) messages.push('Possível bloco de posições detectado; confirme as células associadas antes de revisar.');
     period._warnings = messages.concat(rawPosition.incertezas || []).map((message) => warning(message, rawPosition.pagina || null));
     return period;
   });

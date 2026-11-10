@@ -20,7 +20,7 @@ const extracted = {
     curso: 'Informática',
     turmaAssociacao: { regiao: 'left', confianca: 'confiavel' },
     avisos: [],
-    segunda: { situacaoDocumento: 'com_aulas', avisos: [], posicoes: [{ posicao: 1, estado: 'reconhecido', inicio: '07:30', fim: '08:20', disciplina: 'Matemática', professor: null, sala: null, pagina: 1, incertezas: [] }] },
+    segunda: { situacaoDocumento: 'com_aulas', avisos: [], posicoes: [{ posicao: 1, posicoesAssociadas: [], estado: 'reconhecido', inicio: '07:30', fim: '08:20', disciplina: 'Matemática', professor: null, sala: null, pagina: 1, incertezas: [] }] },
     terca: { situacaoDocumento: 'dia_em_branco', avisos: [], posicoes: [] },
     quarta: { situacaoDocumento: 'nao_reconhecido', avisos: ['Tabela cortada.'], posicoes: [] },
     quinta: { situacaoDocumento: 'com_aulas', avisos: [], posicoes: [] },

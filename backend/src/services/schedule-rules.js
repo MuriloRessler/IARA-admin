@@ -1,21 +1,8 @@
-const normalizeText = (value) => value?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim() || '';
+import { SCHOOL_SCHEDULE_RULES } from '../../../shared/schedule-rules.js';
 
-export const SCHOOL_SCHEDULE_RULES = Object.freeze({
-  confirmedShiftEnds: Object.freeze({ morning: '11:45', afternoon: '17:15' }),
-  general: Object.freeze({
-    inferEndFromNextStart: false,
-    requireExplicitUnknowns: true,
-  }),
-  referenceProfiles: Object.freeze({
-    informaticaReference: Object.freeze({
-      course: 'Informática',
-      expectedPages: 4,
-      expectedClasses: 7,
-      starts: Object.freeze(['07:30', '08:20', '09:10', '10:10', '11:00', '13:00', '13:50', '14:40', '15:40', '16:30']),
-      terminalEnds: Object.freeze({ 5: '11:45', 10: '17:15' }),
-    }),
-  }),
-});
+export { SCHOOL_SCHEDULE_RULES } from '../../../shared/schedule-rules.js';
+
+const normalizeText = (value) => value?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim() || '';
 
 const countKnownStarts = (extracted) => {
   const starts = new Set();
@@ -33,7 +20,10 @@ export const detectScheduleProfile = ({ courseName, pageCount, extracted }) => {
   const profile = Object.values(SCHOOL_SCHEDULE_RULES.referenceProfiles).find((candidate) => {
     if (normalizeText(candidate.course) !== normalizeText(courseName)) return false;
     const matchedStarts = candidate.starts.filter((start) => countKnownStarts(extracted).has(start)).length;
-    return matchedStarts >= 3;
+    const hasStructuralBlock = (extracted?.turmas || []).some((turma) => ['segunda', 'terca', 'quarta', 'quinta', 'sexta']
+      .some((day) => (turma[day]?.posicoes || turma[day]?.periodos || [])
+        .some((position) => (position.posicoesAssociadas || []).length >= 3)));
+    return matchedStarts >= 3 || hasStructuralBlock;
   });
   return profile || null;
 };

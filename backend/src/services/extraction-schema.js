@@ -5,6 +5,7 @@ const positionSchema = {
   additionalProperties: false,
   properties: {
     posicao: { type: ['integer', 'null'] },
+    posicoesAssociadas: { type: 'array', items: { type: 'integer' } },
     estado: { type: 'string', enum: ['reconhecido', 'vazio_documento', 'nao_reconhecido', 'parcial'] },
     inicio: nullableString,
     fim: nullableString,
@@ -14,7 +15,7 @@ const positionSchema = {
     pagina: { type: ['integer', 'null'] },
     incertezas: { type: 'array', items: { type: 'string' } },
   },
-  required: ['posicao', 'estado', 'inicio', 'fim', 'disciplina', 'professor', 'sala', 'pagina', 'incertezas'],
+  required: ['posicao', 'posicoesAssociadas', 'estado', 'inicio', 'fim', 'disciplina', 'professor', 'sala', 'pagina', 'incertezas'],
 };
 
 const daySchema = {

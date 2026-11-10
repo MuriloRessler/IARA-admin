@@ -193,7 +193,7 @@ A extração agora representa cada linha da tabela como uma posição individual
 
 ### Regras de horário
 
-As regras confirmadas ficam centralizadas em `backend/src/services/schedule-rules.js`. O perfil de referência do PDF de Informática reconhece, quando a estrutura é detectada, as dez posições `07:30`, `08:20`, `09:10`, `10:10`, `11:00`, `13:00`, `13:50`, `14:40`, `15:40` e `16:30`. Os términos confirmados das posições finais são `11:45` e `17:15`. Esses valores não são aplicados a documentos com outra estrutura.
+As regras confirmadas ficam centralizadas em `shared/schedule-rules.js` e são consumidas pelo backend e frontend. O perfil de referência do PDF de Informática reconhece, quando a estrutura é detectada, as dez posições `07:30`, `08:20`, `09:10`, `10:10`, `11:00`, `13:00`, `13:50`, `14:40`, `15:40` e `16:30`. Os términos confirmados das posições finais são `11:45` e `17:15`. Esses valores não são aplicados a documentos com outra estrutura.
 
 Para os demais períodos, o término precisa vir explicitamente do documento. Se não houver informação suficiente, o campo fica pendente e a revisão é bloqueada. Intervalos entre inícios não são convertidos automaticamente em duração de aula.
 
@@ -204,3 +204,13 @@ Cada posição pode ser `reconhecido`, `vazio_documento`, `nao_reconhecido` ou `
 Depois da resposta da IA, o backend compara posições retornadas, esperadas, vazias, preenchidas, ilegíveis, duplicadas, fora de ordem e possivelmente omitidas. O resumo aparece na importação e também é mantido no diagnóstico da turma. Avisos de cobertura não são resolvidos copiando dados de outra turma.
 
 O PDF real `Horário Info 14.09.26 (1).pdf` não está disponível neste workspace. A validação realizada usa fixtures sintéticas e não representa uma aprovação da extração real. Quando o arquivo for disponibilizado, execute o teste controlado comparando as sete turmas, quatro páginas, dez posições por dia, dias parcialmente vazios e anotações manuscritas.
+
+## Etapa 4.2 — períodos independentes e conferência célula a célula
+
+Cada linha extraída possui identidade própria, posição, horário, conteúdo, página, estado de reconhecimento e revisão. A resposta estruturada pode declarar `posicoesAssociadas` somente quando o PDF comprovar visualmente uma célula mesclada; com um perfil de horário confirmado, o backend expande esse bloco em períodos independentes usando as posições configuradas. A duração aparente do bloco nunca é usada sozinha para inventar posições. Sem evidência suficiente, o bloco permanece preservado e pendente de decisão humana.
+
+Na conferência, o botão **Editar aula** abre um formulário com salvar/cancelar para o período selecionado. Horários, posição, disciplina, professor, sala, estado de reconhecimento e página podem ser corrigidos; sobreposições, limites inválidos e campos pendentes bloqueiam a gravação. Toda alteração invalida a revisão do dia e do período.
+
+O botão **Dividir período** apresenta as posições aplicáveis do perfil conhecido ou permite informar manualmente os limites quando a estrutura não é conhecida. A divisão exige confirmação, preserva os valores reconhecidos, impede posições duplicadas e remove o registro agrupado apenas depois de criar as células independentes. Células vazias e ilegíveis continuam editáveis e não são descartadas.
+
+O compartilhamento entre turmas continua referenciando o dia inteiro sem copiar ou agrupar períodos. A prévia textual e os rascunhos JSON mantêm todas as ocorrências individuais. Nenhuma alteração desta etapa publica dados no Supabase ou modifica o n8n. O PDF real de referência continua ausente neste workspace; a validação desta etapa usa fixtures e testes sintéticos.
