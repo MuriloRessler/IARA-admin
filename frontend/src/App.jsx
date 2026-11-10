@@ -2,7 +2,7 @@ import { AccessDenied } from './components/AccessDenied.jsx';
 import { AuthLoading } from './components/AuthLoading.jsx';
 import { LoginPage } from './components/LoginPage.jsx';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
-import { Dashboard } from './pages/Dashboard.jsx';
+import { AdminApplication } from './pages/AdminApplication.jsx';
 import './styles/global.css';
 
 function ProtectedApplication() {
@@ -16,7 +16,7 @@ function ProtectedApplication() {
   if (phase === 'unauthorized' || phase === 'authorization_error') {
     return <AccessDenied onRetry={retryAuthorization} onLogout={signOut} isConnectionError={phase === 'authorization_error'} />;
   }
-  return <Dashboard admin={admin} onLogout={signOut} />;
+  return <AdminApplication admin={admin} onLogout={signOut} />;
 }
 
 export default function App() {

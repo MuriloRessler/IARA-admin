@@ -1,72 +1,32 @@
-import { useEffect, useState } from 'react';
-import { ConnectionStatus } from '../components/ConnectionStatus.jsx';
-import { FeatureCard } from '../components/FeatureCard.jsx';
-import { getHealth } from '../services/api.js';
-
-export function Dashboard({ admin, onLogout }) {
-  const [connectionStatus, setConnectionStatus] = useState('loading');
-
-  useEffect(() => {
-    getHealth()
-      .then(() => setConnectionStatus('connected'))
-      .catch(() => setConnectionStatus('error'));
-  }, []);
-
+export function Dashboard({ totalClasses, onNavigate }) {
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div className="brand-mark">IA</div>
-        <div>
-          <p className="eyebrow">Inteligência Artificial de Resposta e Atendimento</p>
-          <h1>IARA</h1>
-          <p className="header-subtitle">Gerenciador de Horários</p>
+    <div className="page-stack">
+      <section className="page-intro page-intro--large">
+        <p className="eyebrow">Visão geral</p>
+        <h2>Gerenciador de Horários</h2>
+        <p>Importe um documento, confira manualmente as grades por turma e prepare a prévia que será publicada em uma etapa futura.</p>
+      </section>
+      <section className="workflow-grid" aria-label="Etapas do gerenciamento">
+        <button className="workflow-card workflow-card--active" type="button" onClick={() => onNavigate('import')}>
+          <span className="workflow-number">01</span>
+          <span><strong>Importar PDF</strong><small>Selecione um documento local para consulta.</small></span>
+          <span className="workflow-action">Abrir →</span>
+        </button>
+        <button className="workflow-card workflow-card--active" type="button" onClick={() => onNavigate('review')}>
+          <span className="workflow-number">02</span>
+          <span><strong>Conferir horários</strong><small>Edite qualquer turma e valide os dias da semana.</small></span>
+          <span className="workflow-action">Abrir →</span>
+        </button>
+        <div className="workflow-card workflow-card--disabled">
+          <span className="workflow-number">03</span>
+          <span><strong>Publicar horários</strong><small>A publicação no Supabase estará disponível em uma próxima etapa.</small></span>
+          <span className="feature-card__badge">Em desenvolvimento</span>
         </div>
-        <div className="admin-actions">
-          <span className="admin-email">{admin?.email}</span>
-          <button className="logout-button" type="button" onClick={onLogout}>Sair</button>
-        </div>
-        <ConnectionStatus status={connectionStatus} />
-      </header>
-
-      <main className="dashboard-content">
-        <section className="welcome-section">
-          <p className="eyebrow">Painel administrativo</p>
-          <h2>Olá, este é o espaço de gestão da IARA.</h2>
-          <p>
-            Organize os horários escolares com clareza e prepare as informações
-            para que o atendimento aos alunos esteja sempre atualizado.
-          </p>
-        </section>
-
-        <section className="features-section" aria-labelledby="features-title">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Fluxo de trabalho</p>
-              <h2 id="features-title">Gestão de horários</h2>
-            </div>
-            <span className="section-count">Próximas etapas</span>
-          </div>
-          <div className="feature-grid">
-            <FeatureCard
-              icon="↑"
-              title="Importar horários"
-              description="Envie os arquivos PDF das grades para iniciar a interpretação dos horários."
-            />
-            <FeatureCard
-              icon="✓"
-              title="Conferir horários"
-              description="Revise as informações identificadas antes de disponibilizá-las para o atendimento."
-            />
-            <FeatureCard
-              icon="↗"
-              title="Publicar horários"
-              description="Publique as grades validadas para manter as respostas da IARA atualizadas."
-            />
-          </div>
-        </section>
-      </main>
-
-      <footer className="app-footer">IARA-admin · Estrutura inicial</footer>
+      </section>
+      <section className="overview-note">
+        <div className="overview-note__icon">49</div>
+        <div><strong>Catálogo local da escola</strong><p>{totalClasses} turmas distribuídas em oito cursos estão disponíveis para conferência.</p></div>
+      </section>
     </div>
   );
 }

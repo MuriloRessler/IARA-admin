@@ -12,3 +12,8 @@
 - Diferencie claramente funcionalidades implementadas de funcionalidades futuras.
 - Execute os testes relevantes e informe qualquer falha ou limitação na entrega.
 - Não declare que o login real foi validado sem uma conta Supabase configurada; use os testes com mocks para a validação automatizada.
+- A Etapa 3 mantém PDFs, grades e rascunhos somente no navegador; não crie endpoints que aparentem persistir esses dados no Supabase.
+- Preserve a fonte única do catálogo em `shared/courses.js`, incluindo os códigos de turma com espaços e letras.
+- Dias vazios devem permanecer pendentes até uma decisão explícita; nunca inferir compartilhamento automaticamente.
+- Valide compartilhamentos, ciclos, horários, sobreposições e pendências antes de gerar a prévia textual.
+- Rascunhos JSON não podem conter tokens, sessões, credenciais ou PDFs; valide a versão e a estrutura antes de importar.

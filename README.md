@@ -108,9 +108,50 @@ A migração não foi executada. Antes de aplicá-la, revise a estrutura real de
 - Configuração segura sem credenciais reais no repositório.
 - Migração SQL versionada, sem execução remota.
 - Testes com mocks do Supabase, sem depender de credenciais reais.
+- Interface administrativa protegida com visão geral, importação e conferência.
+- Seleção dos oito cursos e das 49 turmas a partir de um catálogo compartilhado.
+- Seleção, validação e pré-visualização local de PDFs de até 20 MB.
+- Grade semanal editável com disciplina, professor, sala e horários.
+- Estados explícitos para dias com aulas, compartilhados, sem aulas e pendentes.
+- Prévia do texto da coluna `horario`, sem publicação no banco.
+- Exportação e importação de rascunhos JSON locais, com versão e validação.
 
 ## Próximas etapas
 
-Upload e interpretação de PDFs, conferência das grades, identificação de aulas compartilhadas, aprovação humana e publicação segura no Supabase. Nenhuma dessas operações está implementada nesta etapa.
+OCR, extração automática dos PDFs, reconhecimento de anotações manuscritas, aprovação humana integrada ao fluxo e publicação segura no Supabase. O upload desta etapa é somente local e não interpreta o documento automaticamente.
+
+## Etapa 3 — uso da interface local
+
+Após o login, use **Importar horários** para escolher o curso e selecionar um PDF. O arquivo fica apenas no navegador e pode ser visualizado em um painel nativo. Em seguida, abra **Conferir horários**, selecione qualquer turma e edite a grade manualmente.
+
+Cada dia possui uma situação explícita. Dias vazios permanecem **pendentes** até que o administrador confirme **Sem aulas** ou escolha **Compartilhado** e uma turma de origem. A origem precisa ter aulas válidas, não pode ser a própria turma e referências circulares são rejeitadas. Períodos isolados vazios não geram compartilhamentos automáticos.
+
+Use **Exportar rascunho** para baixar um JSON versionado e **Importar rascunho** para restaurá-lo. O JSON contém somente grades e vínculos de compartilhamento; não contém PDF, sessão, tokens ou credenciais. A prévia da coluna `horario` só é gerada quando a turma não possui pendências.
+
+Os rascunhos permanecem locais. Nenhum botão desta etapa salva ou publica dados no Supabase.
+
+### Estrutura interna da grade
+
+```js
+{
+  curso: 'Informática',
+  turma: '61 1',
+  dias: {
+    segunda: {
+      situacao: 'com_aulas',
+      periodos: [{ inicio: '07:30', fim: '', disciplina: '', professor: '', sala: '' }],
+      compartilhamento: null,
+    },
+  },
+}
+```
+
+O catálogo compartilhado está em `shared/courses.js`. As regras de validação, formatação e rascunhos ficam em `frontend/src/services/` para permanecerem independentes da interface.
+
+## Auditoria de dependências
+
+O `npm audit` foi executado em 10/11/2026 e encontrou seis vulnerabilidades transitivas no conjunto instalado: três moderadas, uma alta e duas críticas. O caminho afetado é de ferramentas de desenvolvimento, principalmente Vitest 2.1.9 e suas versões aninhadas de `vite`, `esbuild`, `tinypool` e `@vitest/mocker`; não há indicação de que o SDK do Supabase esteja envolvido.
+
+O relatório indica correção automática por uma atualização major para Vitest 5.1.0. Essa atualização não foi aplicada nesta etapa porque pode exigir mudanças de compatibilidade no Vite e nos testes. Não executar `npm audit fix --force` sem avaliar a atualização e repetir toda a suíte.
 
 Não foram realizadas alterações remotas no Supabase, no chatbot n8n ou em ambientes de produção.
