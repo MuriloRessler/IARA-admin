@@ -224,3 +224,21 @@ button.workflow-card { cursor: pointer; font: inherit; }
   .draft-actions { width: 100%; }
   .draft-actions button { flex: 1; }
 }
+.review-chip {
+  display: inline-flex;
+  margin: 0.35rem 0.35rem 0 0;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.review-chip--done { color: #166534; background: #dcfce7; }
+.review-chip--pending { color: #92400e; background: #fef3c7; }
+.day-warnings { color: #92400e; background: #fffbeb; border-radius: 0.5rem; padding: 0.75rem 1rem 0.75rem 2rem; }
+.day-warnings li { margin: 0.35rem 0; }
+.text-button { margin-left: 0.75rem; border: 0; background: transparent; color: #166534; cursor: pointer; text-decoration: underline; }
+.review-day-button { margin-top: 0.75rem; }
+.extraction-panel, .extraction-result { display: grid; gap: 0.8rem; }
+.extraction-class-list { display: grid; gap: 0.5rem; }
+.extraction-class-list label { display: flex; gap: 0.55rem; align-items: center; padding: 0.65rem; border: 1px solid #d1d5db; border-radius: 0.5rem; }

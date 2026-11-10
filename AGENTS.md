@@ -17,3 +17,6 @@
 - Dias vazios devem permanecer pendentes até uma decisão explícita; nunca inferir compartilhamento automaticamente.
 - Valide compartilhamentos, ciclos, horários, sobreposições e pendências antes de gerar a prévia textual.
 - Rascunhos JSON não podem conter tokens, sessões, credenciais ou PDFs; valide a versão e a estrutura antes de importar.
+- A Etapa 4 envia PDFs somente por endpoint protegido, em memória, para o provider OpenAI configurado no backend; nunca exponha `OPENAI_API_KEY` no frontend.
+- A extração automática é provisória: toda turma importada inicia como `nao_revisado`, avisos e dias não reconhecidos exigem conferência humana e nenhuma publicação é feita.
+- Use `OPENAI_MODEL`, `PDF_MAX_SIZE_MB`, `PDF_MAX_PAGES` e `EXTRACTION_TIMEOUT_MS` para configuração; não chame a API real em testes automatizados.

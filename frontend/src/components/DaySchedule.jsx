@@ -10,7 +10,7 @@ const statusLabels = {
   pendente: 'Pendente',
 };
 
-export function DaySchedule({ dayDefinition, schedule, schedules, sources, onDayChange, onPeriodChange, onAddPeriod, onRemovePeriod, onShare, onRemoveShare }) {
+export function DaySchedule({ dayDefinition, schedule, schedules, sources, onDayChange, onPeriodChange, onAddPeriod, onRemovePeriod, onShare, onRemoveShare, onReviewDay, onResolveWarning }) {
   const { key: dayKey, label } = dayDefinition;
   const day = schedule.dias[dayKey];
   const currentKey = scheduleKey(schedule.curso, schedule.turma);
@@ -34,6 +34,7 @@ export function DaySchedule({ dayDefinition, schedule, schedules, sources, onDay
         <div>
           <h3>{label}</h3>
           <span className={`status-chip status-chip--${day.situacao}`}>{statusLabels[day.situacao]}</span>
+          <span className={`review-chip review-chip--${day.revisao === 'nao_revisado' ? 'pending' : 'done'}`}>{day.revisao === 'nao_revisado' ? 'Não revisado' : 'Revisado'}</span>
         </div>
         <label className="field-label field-label--compact" htmlFor={`${dayKey}-status`}>
           Situação
@@ -80,6 +81,8 @@ export function DaySchedule({ dayDefinition, schedule, schedules, sources, onDay
         </div>
       )}
       {validationErrors.length > 0 && <ul className="day-errors">{validationErrors.map((error) => <li key={error}>{error}</li>)}</ul>}
+      {day.avisos?.length > 0 && <ul className="day-warnings">{day.avisos.map((item) => <li key={item.id}><span>{item.message}</span>{!item.resolvido && <button className="text-button" type="button" onClick={() => onResolveWarning(dayKey, item.id)}>Marcar aviso como conferido</button>}</li>)}</ul>}
+      {day.revisao === 'nao_revisado' && <button className="secondary-button review-day-button" type="button" onClick={() => onReviewDay(dayKey)} disabled={validationErrors.length > 0 || day.avisos?.some((item) => !item.resolvido)}>Marcar dia como revisado</button>}
       {day.situacao === 'compartilhado' && effective.error && <span className="visually-hidden">{effective.error}</span>}
       {periodIds.size === 0 && day.situacao === 'com_aulas' && <span className="visually-hidden">Dia sem períodos</span>}
     </article>

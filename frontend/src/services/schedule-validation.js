@@ -70,8 +70,9 @@ export const validateSchedule = (schedule, schedules) => {
   if (!schedule) return { valid: false, issues: ['Turma não encontrada.'], pendingDays: 0, errorCount: 1 };
   const issues = [];
   DAYS.forEach(({ key, label }) => {
-    validateDay(schedule.dias[key], schedules, scheduleKey(schedule.curso, schedule.turma), key)
-      .forEach((message) => issues.push({ day: key, label, message }));
+    validateDay(schedule.dias[key], schedules, scheduleKey(schedule.curso, schedule.turma), key).forEach((message) => issues.push({ day: key, label, message }));
+    if (schedule.dias[key].revisao === 'nao_revisado') issues.push({ day: key, label, message: 'Dia ainda não foi marcado como revisado.' });
+    schedule.dias[key].avisos?.filter((item) => !item.resolvido).forEach((item) => issues.push({ day: key, label, message: `Aviso pendente: ${item.message}` }));
   });
   return {
     valid: issues.length === 0,

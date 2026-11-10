@@ -1,7 +1,7 @@
 import { DAYS } from '../services/schedule-model.js';
 import { DaySchedule } from './DaySchedule.jsx';
 
-export function WeeklySchedule({ schedule, schedules, sources, onDayChange, onPeriodChange, onAddPeriod, onRemovePeriod, onShare, onRemoveShare }) {
+export function WeeklySchedule({ schedule, schedules, sources, onDayChange, onPeriodChange, onAddPeriod, onRemovePeriod, onShare, onRemoveShare, onReviewDay, onResolveWarning }) {
   return (
     <section className="weekly-schedule" aria-labelledby="weekly-schedule-title">
       <div className="section-heading section-heading--tight">
@@ -25,6 +25,8 @@ export function WeeklySchedule({ schedule, schedules, sources, onDayChange, onPe
             onRemovePeriod={onRemovePeriod}
             onShare={onShare}
             onRemoveShare={onRemoveShare}
+            onReviewDay={onReviewDay}
+            onResolveWarning={onResolveWarning}
           />
         ))}
       </div>

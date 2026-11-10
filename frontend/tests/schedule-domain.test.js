@@ -48,6 +48,15 @@ describe('catalog and schedule domain', () => {
     expect(() => formatScheduleText(schedule, schedules)).toThrow('pendências');
   });
 
+  it('blocks extracted schedules until every day is explicitly reviewed', () => {
+    const schedule = scheduleWithConfirmedDays();
+    schedule.dias.segunda.revisao = 'nao_revisado';
+    const schedules = { [scheduleKey(schedule.curso, schedule.turma)]: schedule };
+    const validation = validateSchedule(schedule, schedules);
+    expect(validation.valid).toBe(false);
+    expect(validation.issues.some((issue) => issue.message.includes('marcado como revisado'))).toBe(true);
+  });
+
   it('resolves a confirmed shared day without duplicating periods', () => {
     const source = scheduleWithConfirmedDays('Informática', '61 1');
     const target = scheduleWithConfirmedDays('Informática', '61 2');

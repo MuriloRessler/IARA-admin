@@ -10,6 +10,7 @@ export function ScheduleReviewPage({
   courses, classes, selectedCourse, selectedClass, onCourseChange, onClassChange,
   schedule, schedules, sources, file, validation, onDayChange, onPeriodChange,
   onAddPeriod, onRemovePeriod, onShare, onRemoveShare, onImportDraft,
+  onReviewDay, onResolveWarning,
   onExported, onImported, hasChanges,
 }) {
   return (
@@ -27,7 +28,7 @@ export function ScheduleReviewPage({
       <div className="review-layout">
         <div className="review-main">
           <ValidationSummary validation={validation} schedule={schedule} />
-          <WeeklySchedule schedule={schedule} schedules={schedules} sources={sources} onDayChange={onDayChange} onPeriodChange={onPeriodChange} onAddPeriod={onAddPeriod} onRemovePeriod={onRemovePeriod} onShare={onShare} onRemoveShare={onRemoveShare} />
+          <WeeklySchedule schedule={schedule} schedules={schedules} sources={sources} onDayChange={onDayChange} onPeriodChange={onPeriodChange} onAddPeriod={onAddPeriod} onRemovePeriod={onRemovePeriod} onShare={onShare} onRemoveShare={onRemoveShare} onReviewDay={onReviewDay} onResolveWarning={onResolveWarning} />
         </div>
         <aside className="review-aside">
           <PdfPreview file={file} />

@@ -1,1 +1,1 @@
-export { courses } from '../../../shared/courses.js';
+export { courses, getCourse, getClassCourse, getAllClasses, totalClasses } from '../../../shared/courses.js';

@@ -25,17 +25,24 @@ export const createPeriod = () => ({
   disciplina: '',
   professor: '',
   sala: '',
+  paginaFonte: null,
+  incertezas: [],
 });
 
 export const createEmptyDay = () => ({
   situacao: 'pendente',
   periodos: [],
   compartilhamento: null,
+  revisao: 'revisado',
+  avisos: [],
 });
 
 export const createEmptySchedule = (curso, turma) => ({
   curso,
   turma,
+  origem: 'manual',
+  revisao: 'revisado',
+  avisos: [],
   dias: Object.fromEntries(DAYS.map(({ key }) => [key, createEmptyDay()])),
 });
 

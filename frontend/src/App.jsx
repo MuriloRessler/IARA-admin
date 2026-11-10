@@ -6,7 +6,7 @@ import { AdminApplication } from './pages/AdminApplication.jsx';
 import './styles/global.css';
 
 function ProtectedApplication() {
-  const { phase, admin, error, signIn, signOut, retryAuthorization } = useAuth();
+  const { phase, session, admin, error, signIn, signOut, retryAuthorization } = useAuth();
 
   if (phase === 'loading' || phase === 'verifying') return <AuthLoading />;
   if (phase === 'configuration_error') return <LoginPage configurationError />;
@@ -16,7 +16,7 @@ function ProtectedApplication() {
   if (phase === 'unauthorized' || phase === 'authorization_error') {
     return <AccessDenied onRetry={retryAuthorization} onLogout={signOut} isConnectionError={phase === 'authorization_error'} />;
   }
-  return <AdminApplication admin={admin} onLogout={signOut} />;
+  return <AdminApplication admin={admin} accessToken={session?.access_token} onLogout={signOut} />;
 }
 
 export default function App() {

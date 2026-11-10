@@ -118,7 +118,7 @@ A migração não foi executada. Antes de aplicá-la, revise a estrutura real de
 
 ## Próximas etapas
 
-OCR, extração automática dos PDFs, reconhecimento de anotações manuscritas, aprovação humana integrada ao fluxo e publicação segura no Supabase. O upload desta etapa é somente local e não interpreta o documento automaticamente.
+Reconhecimento especializado de anotações manuscritas, aprovação humana integrada ao fluxo e publicação segura no Supabase. A extração automática agora é assistida por IA, mas continua sem publicação automática.
 
 ## Etapa 3 — uso da interface local
 
@@ -155,3 +155,34 @@ O `npm audit` foi executado em 10/11/2026 e encontrou seis vulnerabilidades tran
 O relatório indica correção automática por uma atualização major para Vitest 5.1.0. Essa atualização não foi aplicada nesta etapa porque pode exigir mudanças de compatibilidade no Vite e nos testes. Não executar `npm audit fix --force` sem avaliar a atualização e repetir toda a suíte.
 
 Não foram realizadas alterações remotas no Supabase, no chatbot n8n ou em ambientes de produção.
+## Etapa 4 — extração automática assistida
+
+Após selecionar o curso e um PDF, o administrador pode solicitar **Extrair horários automaticamente**. O backend valida assinatura, extensão, MIME, tamanho de até 20 MB e até 30 páginas antes de enviar o documento em base64, diretamente em memória, para o Responses API. O request usa `store: false`, `detail: high` e Structured Outputs com JSON Schema estrito. O modelo padrão é `gpt-4.1-mini`, mas pode ser substituído por `OPENAI_MODEL`.
+
+O resultado é convertido para o mesmo modelo da grade manual. Turmas não reconhecidas não são atribuídas automaticamente; dias em branco continuam pendentes; campos ausentes e incertezas geram avisos. O administrador escolhe as turmas a importar e cada grade extraída inicia como `nao_revisado`. Edições invalidam a revisão, avisos precisam ser conferidos e a prévia final continua bloqueada enquanto houver pendências.
+
+### Configuração da extração
+
+Preencha `backend/.env` somente no ambiente local ou de deploy:
+
+```env
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
+PDF_MAX_SIZE_MB=20
+PDF_MAX_PAGES=30
+EXTRACTION_TIMEOUT_MS=120000
+```
+
+`OPENAI_API_KEY` nunca deve ser colocado em `frontend/.env`, em variáveis `VITE_*`, no navegador ou em commits. Sem essa chave, o endpoint responde `503` de forma explícita; não há simulação de extração.
+
+O endpoint `POST /api/schedules/extract` exige o mesmo Bearer token administrativo de `/api/auth/me`, recebe `course` e o arquivo multipart no campo `file`, e retorna apenas dados provisórios para conferência. Não há upload persistente, migração Supabase, alteração da tabela `horarios` ou integração n8n nesta etapa.
+
+### Limites e validação
+
+- Respostas de erro usam códigos específicos para curso/arquivo inválido, PDF grande ou ilegível, rate limit, indisponibilidade e timeout.
+- O provider OpenAI está isolado por uma interface injetável, portanto os testes usam mocks e não enviam documentos reais.
+- O arquivo de referência `Horário Info 14.09.26 (1).pdf` só deve ser usado quando existir no workspace; a ausência dele não é mascarada por um arquivo inventado.
+
+## Auditoria da Etapa 4
+
+`npm audit --omit=dev` terminou com zero vulnerabilidades em 10/11/2026. O `npm audit` completo mantém seis vulnerabilidades em ferramentas de desenvolvimento (três moderadas, uma alta e duas críticas), principalmente Vitest 2.1.9 e dependências aninhadas de Vite, esbuild, tinypool e @vitest/mocker. A correção automática proposta exige o upgrade major para Vitest 5.1.0 e não foi aplicada sem avaliação de compatibilidade.
