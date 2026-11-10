@@ -9,3 +9,19 @@ export const getHealth = async () => {
 
   return response.json();
 };
+
+export const getCurrentAdmin = async (accessToken) => {
+  const response = await fetch(`${apiBaseUrl}/auth/me`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = new Error(`Authorization failed with HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+};

@@ -1,27 +1,28 @@
 # IARA-admin
 
-O IARA-admin é o painel administrativo da IARA (Inteligência Artificial de Resposta e Atendimento), um chatbot de atendimento escolar. Este projeto será responsável pelo gerenciamento dos horários escolares que serão consultados pelo chatbot.
+O IARA-admin é o painel administrativo da IARA (Inteligência Artificial de Resposta e Atendimento), um chatbot de atendimento escolar. O painel será responsável pelo gerenciamento dos horários escolares consultados pelo chatbot.
 
 ## Objetivo
 
-Esta primeira etapa prepara o frontend e o backend para o futuro fluxo de importação, conferência e publicação de horários. Nesta versão há apenas uma interface inicial e o endpoint de verificação do backend.
+O projeto oferece uma interface administrativa protegida por Supabase Auth e uma API Express que valida, no backend, a identidade e a autorização do único administrador configurado. A importação, interpretação, conferência e publicação de horários continuam reservadas para etapas futuras.
 
 ## Tecnologias
 
 - React 19, Vite e JSX
 - Node.js 24 ou 26, Express 5 e módulos ES
+- Supabase JS para autenticação
 - npm workspaces e `concurrently`
 - CSS com variáveis nativas
-- Testes com `node:test` e Supertest
+- Testes com Vitest, Testing Library, `node:test` e Supertest
 
 ## Arquitetura
 
-O monorepo contém dois workspaces independentes. O frontend consulta o backend por `GET /api/health` usando a Fetch API. O backend organiza configuração, rotas, controllers e middlewares, e permanece funcional sem credenciais do Supabase.
+O monorepo contém dois workspaces. O frontend usa Supabase Auth para manter a sessão e realiza login por email e senha. Depois do login, envia o access token para `GET /api/auth/me`. O backend valida o token com `supabase.auth.getUser(token)` e só libera o painel quando o ID corresponde exatamente a `ADMIN_USER_ID`.
 
 ```text
-frontend/             aplicação React e interface inicial
-backend/              API Express e testes
-supabase/             documentação da estrutura futura, sem migrações
+frontend/             aplicação React, autenticação e interface administrativa
+backend/              API Express, middleware de autorização e testes
+supabase/             migração revisável e documentação, sem execução remota
 ```
 
 ## Pré-requisitos
@@ -36,9 +37,40 @@ Na raiz do projeto:
 npm install
 ```
 
-Copie `frontend/.env.example` para `frontend/.env` e `backend/.env.example` para `backend/.env` se quiser personalizar as variáveis. Os valores padrão permitem executar esta etapa sem conexão com o Supabase.
+Crie `frontend/.env` a partir de `frontend/.env.example` e `backend/.env` a partir de `backend/.env.example`.
 
-As variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` são apenas preparadas para o futuro. A variável `SUPABASE_SECRET_KEY` pertence exclusivamente ao backend e nunca deve ser exposta ao frontend.
+### Variáveis do frontend
+
+```env
+VITE_API_BASE_URL=http://localhost:3001/api
+VITE_SUPABASE_URL=
+VITE_SUPABASE_PUBLISHABLE_KEY=
+```
+
+`VITE_SUPABASE_URL` é a URL do projeto no Supabase. A publishable key pode ser localizada em **Project Settings > API**. Somente valores públicos devem ser usados no frontend.
+
+### Variáveis do backend
+
+```env
+PORT=3001
+FRONTEND_URL=http://localhost:5173
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SECRET_KEY=
+ADMIN_USER_ID=
+```
+
+Nesta etapa, `SUPABASE_SECRET_KEY` é reservada para operações privilegiadas futuras e pode permanecer vazia. Ela nunca deve ser enviada ao navegador. `ADMIN_USER_ID` deve conter o UUID do único usuário autorizado; sem ele, as rotas administrativas respondem `503` e permanecem bloqueadas.
+
+## Configuração do administrador no Supabase
+
+1. Copie a URL do projeto e a publishable key no painel Supabase e configure os arquivos `.env` conforme acima.
+2. Em **Authentication > Users**, crie manualmente o usuário administrador com email e senha.
+3. Abra o usuário criado e copie o UUID.
+4. Configure esse UUID em `ADMIN_USER_ID` no `.env` do backend.
+5. Reinicie o backend e teste o login pela interface.
+
+O IARA-admin não possui cadastro público, criação automática de contas, login social ou recuperação de senha. Se o projeto Supabase não precisar de cadastro para outros sistemas, avalie desabilitar a inscrição pública nas configurações de Authentication. Não compartilhe senhas ou chaves secretas por mensagens ou commits.
 
 ## Execução
 
@@ -50,19 +82,35 @@ npm run build              # build de produção do frontend
 npm test                   # testes automatizados
 ```
 
-O endpoint `http://localhost:3001/api/health` retorna o estado do backend. A interface exibe “Backend conectado” quando essa consulta funciona.
+Com o Supabase configurado, acesse `http://localhost:5173`, informe as credenciais do administrador e use o botão **Sair** para encerrar a sessão. Sem configuração do Supabase, a interface informa que o login está pendente de configuração; não há autenticação simulada.
+
+## Segurança da autenticação
+
+- A sessão é mantida e renovada pelo SDK oficial do Supabase.
+- O callback `onAuthStateChange` apenas atualiza o estado; a autorização é verificada em fluxo assíncrono separado.
+- O frontend nunca decide sozinho quem é administrador.
+- O backend exige `Authorization: Bearer TOKEN`, valida o token no Supabase e compara o UUID com `ADMIN_USER_ID`.
+- Token ausente ou inválido retorna `401`; usuário autenticado sem autorização retorna `403`; configuração ausente ou indisponibilidade do serviço retorna `503`.
+- `GET /api/health` continua público.
+
+## Migração SQL preparada
+
+O arquivo `supabase/migrations/202611090001_add_turma_to_horarios.sql` apenas prepara, de forma aditiva, a coluna `turma VARCHAR(20)` e um índice único parcial para valores não nulos. Ele preserva os registros, IDs, cursos e URLs atuais.
+
+A migração não foi executada. Antes de aplicá-la, revise a estrutura real de `public.horarios`, faça backup e execute o SQL somente mediante aprovação explícita. Não use `db push` ou `db reset` contra produção. Durante a transição, registros antigos podem manter `turma = NULL` e URLs em `horario`, enquanto registros novos terão uma grade por turma. O n8n só deverá mudar de consulta depois da validação das 49 grades.
 
 ## Implementado nesta etapa
 
-- Monorepo com npm workspaces e scripts centralizados.
-- API Express com CORS restrito, tratamento de erros e endpoint de saúde.
-- Interface React responsiva com a identidade visual da IARA.
-- Indicador de conexão entre frontend e backend.
-- Documentação das turmas, do banco futuro e das regras previstas para processamento.
-- Testes automatizados para o endpoint de saúde e rotas inexistentes.
+- Login administrativo com `signInWithPassword`.
+- Persistência, renovação, verificação e logout da sessão Supabase.
+- Proteção visual do painel e estados de carregamento, erro e acesso negado.
+- Middleware backend reutilizável e `GET /api/auth/me`.
+- Configuração segura sem credenciais reais no repositório.
+- Migração SQL versionada, sem execução remota.
+- Testes com mocks do Supabase, sem depender de credenciais reais.
 
 ## Próximas etapas
 
-Login e autorização do administrador, integração segura com Supabase, upload e interpretação de PDFs, conferência das grades, aprovação humana e publicação. O processamento deverá considerar PDFs digitalizados, várias turmas por página, anotações manuscritas e possíveis compartilhamentos, sempre sinalizando dados não reconhecidos para revisão.
+Upload e interpretação de PDFs, conferência das grades, identificação de aulas compartilhadas, aprovação humana e publicação segura no Supabase. Nenhuma dessas operações está implementada nesta etapa.
 
-Não foram realizadas alterações no banco de dados, no chatbot n8n ou em ambientes de produção.
+Não foram realizadas alterações remotas no Supabase, no chatbot n8n ou em ambientes de produção.

@@ -3,7 +3,7 @@ import { ConnectionStatus } from '../components/ConnectionStatus.jsx';
 import { FeatureCard } from '../components/FeatureCard.jsx';
 import { getHealth } from '../services/api.js';
 
-export function Dashboard() {
+export function Dashboard({ admin, onLogout }) {
   const [connectionStatus, setConnectionStatus] = useState('loading');
 
   useEffect(() => {
@@ -20,6 +20,10 @@ export function Dashboard() {
           <p className="eyebrow">Inteligência Artificial de Resposta e Atendimento</p>
           <h1>IARA</h1>
           <p className="header-subtitle">Gerenciador de Horários</p>
+        </div>
+        <div className="admin-actions">
+          <span className="admin-email">{admin?.email}</span>
+          <button className="logout-button" type="button" onClick={onLogout}>Sair</button>
         </div>
         <ConnectionStatus status={connectionStatus} />
       </header>
