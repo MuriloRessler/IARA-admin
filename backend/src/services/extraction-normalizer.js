@@ -1,22 +1,22 @@
 import { getCourse } from '../config/courses.js';
+import { auditDayPositions, summarizeExtractionAudit } from './extraction-audit.js';
+import { detectScheduleProfile, getPositionStart, getTerminalEnd } from './schedule-rules.js';
 
 const DAYS = ['segunda', 'terca', 'quarta', 'quinta', 'sexta'];
-let periodSequence = 0;
-const nextPeriodId = () => `extracted-period-${++periodSequence}`;
+const DAY_LABELS = { segunda: 'Segunda-feira', terca: 'Terça-feira', quarta: 'Quarta-feira', quinta: 'Quinta-feira', sexta: 'Sexta-feira' };
 const normalizeText = (value) => value?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim() || '';
 const validTime = (value) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value || '');
 const warning = (message, page = null) => ({ id: `${Date.now()}-${Math.random()}`, message, page, resolvido: false });
+const safeId = (value) => normalizeText(value).replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
 
-const createPeriod = () => ({ id: nextPeriodId(), inicio: '', fim: '', disciplina: '', professor: '', sala: '', paginaFonte: null, incertezas: [] });
-const createSchedule = (course, classCode) => ({
+const createSchedule = (course, classCode, association) => ({
   curso: course,
   turma: classCode,
   origem: 'extracao',
   revisao: 'nao_revisado',
   avisos: [],
-  dias: Object.fromEntries(DAYS.map((day) => [day, {
-    situacao: 'pendente', periodos: [], compartilhamento: null, revisao: 'nao_revisado', avisos: [],
-  }])),
+  associacaoTurma: association || { regiao: null, confianca: 'nao_identificada' },
+  dias: Object.fromEntries(DAYS.map((day) => [day, { situacao: 'pendente', periodos: [], compartilhamento: null, revisao: 'nao_revisado', avisos: [] }])),
 });
 
 export const resolveExtractedClass = (value, course) => {
@@ -29,39 +29,76 @@ export const resolveExtractedClass = (value, course) => {
   return matches.length === 1 ? matches[0] : null;
 };
 
-const normalizeDay = (rawDay) => {
-  const day = { situacao: 'pendente', periodos: [], compartilhamento: null, revisao: 'nao_revisado', avisos: [] };
-  const sourceWarnings = [...(rawDay?.avisos || [])];
-  if (rawDay?.situacaoDocumento === 'dia_em_branco') {
-    day.avisos = [warning('O documento indica um dia em branco; confirme manualmente se não há aulas.')];
-    return day;
-  }
-  day.periodos = (rawDay?.periodos || []).map((rawPeriod) => {
-    const period = createPeriod();
-    period.inicio = validTime(rawPeriod.inicio) ? rawPeriod.inicio : '';
-    period.fim = validTime(rawPeriod.fim) ? rawPeriod.fim : '';
-    period.disciplina = rawPeriod.disciplina || '';
-    period.professor = rawPeriod.professor || '';
-    period.sala = rawPeriod.sala || '';
-    period.paginaFonte = rawPeriod.pagina || null;
-    period.incertezas = rawPeriod.incertezas || [];
-    if (rawPeriod.incertezas?.length) sourceWarnings.push(...rawPeriod.incertezas);
+const resolveState = (rawPosition) => {
+  if (['reconhecido', 'vazio_documento', 'nao_reconhecido', 'parcial'].includes(rawPosition.estado)) return rawPosition.estado;
+  if (rawPosition.statusCelula === 'vazia') return 'vazio_documento';
+  if (rawPosition.statusCelula === 'ilegivel') return 'parcial';
+  return rawPosition.disciplina ? 'reconhecido' : 'nao_reconhecido';
+};
+
+const normalizeDay = ({ rawDay = {}, dayKey, profile, scheduleId }) => {
+  const rawPositions = rawDay.posicoes || rawDay.periodos || [];
+  const periods = rawPositions.map((rawPosition, index) => {
+    const position = Number.isInteger(rawPosition.posicao) ? rawPosition.posicao : index + 1;
+    const estado = resolveState(rawPosition);
+    const configuredStart = getPositionStart(profile, position);
+    const inicio = validTime(rawPosition.inicio) ? rawPosition.inicio : (configuredStart || '');
+    const configuredEnd = getTerminalEnd(profile, position);
+    const fim = configuredEnd || (validTime(rawPosition.fim) ? rawPosition.fim : '');
+    const period = {
+      id: `extracted-${scheduleId}-${dayKey}-${position}-${index}`,
+      posicao: position,
+      estado,
+      inicio,
+      fim,
+      disciplina: rawPosition.disciplina || '',
+      professor: rawPosition.professor || '',
+      sala: rawPosition.sala || '',
+      paginaFonte: rawPosition.pagina || null,
+      incertezas: rawPosition.incertezas || [],
+      inicioPendente: estado !== 'vazio_documento' && !inicio,
+      fimPendente: estado !== 'vazio_documento' && !fim,
+    };
+    const messages = [];
+    if (!inicio && estado !== 'vazio_documento') messages.push('Horário de início não reconhecido.');
+    if (rawPosition.inicio && !validTime(rawPosition.inicio)) messages.push('Horário de início ilegível ou inválido.');
+    if (estado !== 'vazio_documento' && !fim) messages.push('Horário de término não reconhecido; confirme no PDF.');
+    if (rawPosition.fim && !validTime(rawPosition.fim) && !configuredEnd) messages.push('Horário de término ilegível ou inválido.');
+    if (estado === 'nao_reconhecido' || estado === 'parcial') messages.push('A posição foi preservada, mas exige conferência humana.');
+    if (!period.disciplina && estado !== 'vazio_documento') messages.push('Disciplina não reconhecida; informe-a na conferência.');
+    period._warnings = messages.concat(rawPosition.incertezas || []).map((message) => warning(message, rawPosition.pagina || null));
     return period;
   });
-  if (day.periodos.length) day.situacao = 'com_aulas';
-  if (!day.periodos.length || ['parcialmente_ilegivel', 'nao_reconhecido'].includes(rawDay?.situacaoDocumento)) {
-    day.situacao = day.periodos.length ? 'com_aulas' : 'pendente';
-  }
-  day.avisos = sourceWarnings.map((message) => warning(message));
-  return day;
+
+  const positionAudit = auditDayPositions({
+    positions: periods,
+    expectedPositions: profile ? profile.starts.map((_start, index) => index + 1) : [],
+    dayLabel: DAY_LABELS[dayKey],
+  });
+  const dayWarnings = [
+    ...(rawDay.avisos || []).map((message) => warning(message)),
+    ...periods.flatMap((period) => period._warnings),
+    ...positionAudit.warnings.map((message) => warning(message)),
+  ];
+  const hasNonEmptyPosition = periods.some((period) => period.estado !== 'vazio_documento');
+  const day = {
+    situacao: rawDay.situacaoDocumento === 'dia_em_branco' && !hasNonEmptyPosition ? 'pendente' : (hasNonEmptyPosition ? 'com_aulas' : 'pendente'),
+    periodos: periods.map(({ _warnings, ...period }) => period),
+    compartilhamento: null,
+    revisao: 'nao_revisado',
+    avisos: dayWarnings,
+  };
+  return { day, audit: positionAudit };
 };
 
 export const normalizeExtraction = ({ extracted, courseName, fileName, pageCount }) => {
   const course = getCourse(courseName);
   if (!course) throw new Error('Unknown course');
+  const profile = detectScheduleProfile({ courseName: course.name, pageCount, extracted });
   const schedules = {};
   const unrecognizedClasses = [];
   const warnings = [...(extracted.observacoes || [])];
+  const scheduleAudits = [];
 
   for (const extractedClass of extracted.turmas || []) {
     const classCode = resolveExtractedClass(extractedClass.turma, course);
@@ -70,12 +107,31 @@ export const normalizeExtraction = ({ extracted, courseName, fileName, pageCount
       warnings.push(`Turma não reconhecida: ${extractedClass.turma || 'identificação ausente'}.`);
       continue;
     }
-    const schedule = createSchedule(course.name, classCode);
-    for (const day of DAYS) schedule.dias[day] = normalizeDay(extractedClass[day]);
-    schedule.dias.segunda.avisos.push(...(extractedClass.avisos || []).map((message) => warning(message)));
+    const association = extractedClass.turmaAssociacao || { regiao: null, confianca: 'nao_identificada' };
+    const scheduleId = `${safeId(course.name)}-${safeId(classCode)}`;
+    const schedule = createSchedule(course.name, classCode, association);
+    const audit = { turma: classCode, dias: {} };
+    for (const day of DAYS) {
+      const normalized = normalizeDay({ rawDay: extractedClass[day], dayKey: day, profile, scheduleId });
+      schedule.dias[day] = normalized.day;
+      audit.dias[day] = normalized.audit;
+    }
+    if (association.confianca === 'duvidosa') schedule.dias.segunda.avisos.push(warning('A associação da região da tabela com esta turma é duvidosa; confira as colunas.'));
+    schedule.diagnostico = { perfil: profile?.course || null, paginas: pageCount, dias: audit.dias };
+    scheduleAudits.push(audit);
     schedules[`${course.name}::${classCode}`] = schedule;
   }
 
+  const diagnostico = {
+    curso: course.name,
+    arquivo: fileName,
+    paginas: pageCount,
+    perfilAplicado: profile?.course || null,
+    turmasDetectadas: (extracted.turmas || []).length,
+    turmasReconhecidas: Object.keys(schedules).length,
+    turmasNaoReconhecidas: unrecognizedClasses.length,
+    ...summarizeExtractionAudit(scheduleAudits),
+  };
   return {
     status: 'ready_for_review',
     curso: course.name,
@@ -84,7 +140,8 @@ export const normalizeExtraction = ({ extracted, courseName, fileName, pageCount
     schedules,
     classes: Object.values(schedules).map((schedule) => schedule.turma),
     unrecognizedClasses,
-    warnings,
+    warnings: [...warnings, ...scheduleAudits.flatMap((audit) => DAYS.flatMap((day) => audit.dias[day].warnings))],
+    diagnostico,
     review: 'nao_revisado',
   };
 };

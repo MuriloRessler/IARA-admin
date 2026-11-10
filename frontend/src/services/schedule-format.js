@@ -10,11 +10,13 @@ export class ScheduleFormatError extends Error {
 }
 
 const formatPeriod = (period) => {
+  if (period.estado === 'vazio_documento') return `POSIÇÃO ${period.posicao || '?'}: CÉLULA VAZIA NO DOCUMENTO`;
   const time = period.fim ? `${period.inicio} - ${period.fim}` : period.inicio;
   const details = [period.professor && `Professor: ${period.professor}`, period.sala && `Sala: ${period.sala}`]
     .filter(Boolean)
     .join(' | ');
-  return `${time} - ${period.disciplina}${details ? ` | ${details}` : ''}`;
+  const source = period.paginaFonte ? ` | Página: ${period.paginaFonte}` : '';
+  return `${time} - ${period.disciplina}${details ? ` | ${details}` : ''}${source}`;
 };
 
 export const formatScheduleText = (schedule, schedules) => {

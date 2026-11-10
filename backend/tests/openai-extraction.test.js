@@ -17,4 +17,5 @@ test('OpenAI provider sends the PDF as a non-persistent structured Responses req
   assert.match(requestBody.input[0].content[0].file_data, /^data:application\/pdf;base64,/);
   assert.equal(requestBody.text.format.type, 'json_schema');
   assert.equal(requestBody.text.format.strict, true);
+  assert.ok(requestBody.text.format.schema.properties.turmas.items.properties.segunda.properties.posicoes);
 });

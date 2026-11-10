@@ -20,3 +20,6 @@
 - A Etapa 4 envia PDFs somente por endpoint protegido, em memória, para o provider OpenAI configurado no backend; nunca exponha `OPENAI_API_KEY` no frontend.
 - A extração automática é provisória: toda turma importada inicia como `nao_revisado`, avisos e dias não reconhecidos exigem conferência humana e nenhuma publicação é feita.
 - Use `OPENAI_MODEL`, `PDF_MAX_SIZE_MB`, `PDF_MAX_PAGES` e `EXTRACTION_TIMEOUT_MS` para configuração; não chame a API real em testes automatizados.
+- A Etapa 4.1 usa posições estruturais (`posicao`) para preservar linhas repetidas; nunca agrupe períodos pela disciplina, professor, sala ou proximidade.
+- Os términos confirmados de 11:45 e 17:15 pertencem ao perfil de referência de Informática e só são aplicados quando a estrutura do documento for identificada. Não derive término pelo próximo início.
+- Células vazias, ilegíveis e não reconhecidas devem permanecer distintas no modelo e gerar auditoria; não complete lacunas com valores de linhas vizinhas.

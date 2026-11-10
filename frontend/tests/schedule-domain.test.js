@@ -57,6 +57,20 @@ describe('catalog and schedule domain', () => {
     expect(validation.issues.some((issue) => issue.message.includes('marcado como revisado'))).toBe(true);
   });
 
+  it('keeps repeated periods and document-empty positions in the text preview', () => {
+    const schedule = scheduleWithConfirmedDays();
+    schedule.dias.segunda.periodos = [
+      { id: 'one', posicao: 1, estado: 'reconhecido', inicio: '13:00', fim: '13:50', disciplina: 'Química', professor: '', sala: '' },
+      { id: 'two', posicao: 2, estado: 'reconhecido', inicio: '13:50', fim: '14:40', disciplina: 'Química', professor: '', sala: '' },
+      { id: 'three', posicao: 3, estado: 'vazio_documento', inicio: '14:40', fim: '15:40', disciplina: '', professor: '', sala: '' },
+    ];
+    const schedules = { [scheduleKey(schedule.curso, schedule.turma)]: schedule };
+    const text = formatScheduleText(schedule, schedules);
+    expect(text.match(/Química/g)).toHaveLength(2);
+    expect(text).toContain('CÉLULA VAZIA NO DOCUMENTO');
+    expect(parseDraft(serializeDraft(schedules)).schedules[scheduleKey(schedule.curso, schedule.turma)].dias.segunda.periodos).toHaveLength(3);
+  });
+
   it('resolves a confirmed shared day without duplicating periods', () => {
     const source = scheduleWithConfirmedDays('Informática', '61 1');
     const target = scheduleWithConfirmedDays('Informática', '61 2');

@@ -20,6 +20,8 @@ const nextPeriodId = () => {
 
 export const createPeriod = () => ({
   id: nextPeriodId(),
+  posicao: null,
+  estado: 'reconhecido',
   inicio: '',
   fim: '',
   disciplina: '',

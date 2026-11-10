@@ -13,12 +13,15 @@ export const timeToMinutes = (value) => {
 
 export const validatePeriod = (period, index) => {
   const errors = [];
+  const isDocumentEmpty = period.estado === 'vazio_documento';
   if (!isValidTime(period.inicio)) errors.push(`Período ${index + 1}: informe um início válido (HH:MM).`);
   if (period.fim && !isValidTime(period.fim)) errors.push(`Período ${index + 1}: informe um término válido (HH:MM).`);
+  if (period.inicioPendente) errors.push(`Período ${index + 1}: o início precisa ser conferido.`);
+  if (period.fimPendente) errors.push(`Período ${index + 1}: o término precisa ser conferido.`);
   if (period.fim && isValidTime(period.inicio) && timeToMinutes(period.fim) <= timeToMinutes(period.inicio)) {
     errors.push(`Período ${index + 1}: o término deve ser posterior ao início.`);
   }
-  if (!period.disciplina?.trim()) errors.push(`Período ${index + 1}: informe a disciplina.`);
+  if (!isDocumentEmpty && !period.disciplina?.trim()) errors.push(`Período ${index + 1}: informe a disciplina.`);
   return errors;
 };
 

@@ -242,3 +242,6 @@ button.workflow-card { cursor: pointer; font: inherit; }
 .extraction-panel, .extraction-result { display: grid; gap: 0.8rem; }
 .extraction-class-list { display: grid; gap: 0.5rem; }
 .extraction-class-list label { display: flex; gap: 0.55rem; align-items: center; padding: 0.65rem; border: 1px solid #d1d5db; border-radius: 0.5rem; }
+.period-source-note { grid-column: 1 / -1; color: var(--color-muted); font-size: 0.72rem; }
+.extraction-diagnostics { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.extraction-diagnostics span, .extraction-diagnostics strong { background: #f7faf8; border-radius: 0.45rem; padding: 0.45rem 0.6rem; }

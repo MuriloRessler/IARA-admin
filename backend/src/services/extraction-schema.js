@@ -1,9 +1,11 @@
 const nullableString = { type: ['string', 'null'] };
 
-const periodSchema = {
+const positionSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
+    posicao: { type: ['integer', 'null'] },
+    estado: { type: 'string', enum: ['reconhecido', 'vazio_documento', 'nao_reconhecido', 'parcial'] },
     inicio: nullableString,
     fim: nullableString,
     disciplina: nullableString,
@@ -12,7 +14,7 @@ const periodSchema = {
     pagina: { type: ['integer', 'null'] },
     incertezas: { type: 'array', items: { type: 'string' } },
   },
-  required: ['inicio', 'fim', 'disciplina', 'professor', 'sala', 'pagina', 'incertezas'],
+  required: ['posicao', 'estado', 'inicio', 'fim', 'disciplina', 'professor', 'sala', 'pagina', 'incertezas'],
 };
 
 const daySchema = {
@@ -20,10 +22,10 @@ const daySchema = {
   additionalProperties: false,
   properties: {
     situacaoDocumento: { type: 'string', enum: ['com_aulas', 'dia_em_branco', 'parcialmente_ilegivel', 'nao_reconhecido'] },
-    periodos: { type: 'array', items: periodSchema },
+    posicoes: { type: 'array', items: positionSchema },
     avisos: { type: 'array', items: { type: 'string' } },
   },
-  required: ['situacaoDocumento', 'periodos', 'avisos'],
+  required: ['situacaoDocumento', 'posicoes', 'avisos'],
 };
 
 export const extractionFormat = {
@@ -43,6 +45,15 @@ export const extractionFormat = {
           properties: {
             turma: nullableString,
             curso: nullableString,
+            turmaAssociacao: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                regiao: nullableString,
+                confianca: { type: 'string', enum: ['confiavel', 'duvidosa', 'nao_identificada'] },
+              },
+              required: ['regiao', 'confianca'],
+            },
             segunda: daySchema,
             terca: daySchema,
             quarta: daySchema,
@@ -50,7 +61,7 @@ export const extractionFormat = {
             sexta: daySchema,
             avisos: { type: 'array', items: { type: 'string' } },
           },
-          required: ['turma', 'curso', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'avisos'],
+          required: ['turma', 'curso', 'turmaAssociacao', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'avisos'],
         },
       },
       observacoes: { type: 'array', items: { type: 'string' } },

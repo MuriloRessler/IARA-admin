@@ -4,13 +4,17 @@ Você é um extrator de horários escolares. Analise visualmente todas as ${page
 Curso selecionado: ${course.name}
 Turmas válidas do catálogo: ${course.classes.join(', ')}
 
+Fase A — identifique primeiro a estrutura: páginas, cabeçalhos, regiões de cada turma, tabelas lado a lado, colunas, dias, linhas/posições e células vazias. Fase B — extraia o conteúdo de cada posição identificada.
+
 Regras obrigatórias:
 - Retorne todas as turmas que aparecem no documento, mas nunca invente turma, disciplina, horário, professor ou sala.
 - Use somente as turmas do catálogo quando a identificação estiver clara. Se estiver ilegível, ambígua ou ausente, deixe turma como null.
+- Para cada turma e dia, retorne uma entrada em posicoes para cada linha/posição visual identificada, sem resumir blocos e sem agrupar linhas consecutivas.
+- Preserve a posição da linha em posicao e use estado reconhecido, vazio_documento, nao_reconhecido ou parcial. Uma célula vazia deve ser retornada como posição vazia; uma célula ilegível deve ser retornada como não reconhecida/parcial.
 - Preserve o dia da semana correto e extraia segunda, terça, quarta, quinta e sexta-feira.
-- Para cada período, informe início, fim, disciplina, professor, sala e página quando forem legíveis. Use null para campo desconhecido e registre a incerteza.
+- Para cada posição, informe início, fim, disciplina, professor, sala e página quando forem legíveis. Use null para campo desconhecido e registre a incerteza; nunca descarte a linha por falha em um campo.
 - Diferencie dia_em_branco, parcialmente_ilegivel e nao_reconhecido. Um dia sem conteúdo visível não deve ser interpretado como sem aulas confirmado.
 - Inclua avisos curtos para células cortadas, manuscritos, baixa resolução, conflito de leitura ou qualquer informação que exija conferência humana.
-- A saída será editada por um administrador e nunca publica dados.
+- A saída será editada por um administrador e nunca publica dados. Não preencha posições ausentes usando a disciplina da linha anterior ou seguinte.
 - Use a aparência visual das páginas para entender a estrutura da tabela; não faça OCR textual isolado.
 `;

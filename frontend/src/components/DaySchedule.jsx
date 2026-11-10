@@ -64,10 +64,12 @@ export function DaySchedule({ dayDefinition, schedule, schedules, sources, onDay
                 <input id={`${period.id}-end`} type="time" value={period.fim} onChange={(event) => onPeriodChange(dayKey, period.id, 'fim', event.target.value)} />
               </div>
               <div className="period-row__fields">
+                <label htmlFor={`${period.id}-state`}>Leitura<select id={`${period.id}-state`} value={period.estado || 'reconhecido'} onChange={(event) => onPeriodChange(dayKey, period.id, 'estado', event.target.value)}><option value="reconhecido">Reconhecido</option><option value="vazio_documento">Célula vazia</option><option value="nao_reconhecido">Não reconhecido</option><option value="parcial">Leitura parcial</option></select></label>
                 <label htmlFor={`${period.id}-subject`}>Disciplina<input id={`${period.id}-subject`} value={period.disciplina} onChange={(event) => onPeriodChange(dayKey, period.id, 'disciplina', event.target.value)} placeholder="Disciplina" /></label>
                 <label htmlFor={`${period.id}-teacher`}>Professor<input id={`${period.id}-teacher`} value={period.professor} onChange={(event) => onPeriodChange(dayKey, period.id, 'professor', event.target.value)} placeholder="Opcional" /></label>
                 <label htmlFor={`${period.id}-room`}>Sala<input id={`${period.id}-room`} value={period.sala} onChange={(event) => onPeriodChange(dayKey, period.id, 'sala', event.target.value)} placeholder="Opcional" /></label>
               </div>
+              {(period.posicao || period.paginaFonte || period.estado !== 'reconhecido') && <small className="period-source-note">Posição {period.posicao || 'não informada'}{period.paginaFonte ? ` · página ${period.paginaFonte}` : ''} · {period.estado === 'vazio_documento' ? 'célula vazia no PDF' : period.estado === 'nao_reconhecido' ? 'conferência necessária' : period.estado === 'parcial' ? 'leitura parcial' : 'extraído'}</small>}
               <button className="icon-button" type="button" onClick={() => onRemovePeriod(dayKey, period.id)} aria-label={`Remover período ${index + 1}`}>×</button>
             </div>
           ))}

@@ -186,3 +186,21 @@ O endpoint `POST /api/schedules/extract` exige o mesmo Bearer token administrati
 ## Auditoria da Etapa 4
 
 `npm audit --omit=dev` terminou com zero vulnerabilidades em 10/11/2026. O `npm audit` completo mantém seis vulnerabilidades em ferramentas de desenvolvimento (três moderadas, uma alta e duas críticas), principalmente Vitest 2.1.9 e dependências aninhadas de Vite, esbuild, tinypool e @vitest/mocker. A correção automática proposta exige o upgrade major para Vitest 5.1.0 e não foi aplicada sem avaliação de compatibilidade.
+
+## Etapa 4.1 — precisão estrutural da extração
+
+A extração agora representa cada linha da tabela como uma posição individual. O campo `posicao` mantém a ordem mesmo quando duas ou mais linhas possuem a mesma disciplina, professor e sala. Não existe deduplicação por texto, agrupamento de intervalos ou uso do início seguinte como término.
+
+### Regras de horário
+
+As regras confirmadas ficam centralizadas em `backend/src/services/schedule-rules.js`. O perfil de referência do PDF de Informática reconhece, quando a estrutura é detectada, as dez posições `07:30`, `08:20`, `09:10`, `10:10`, `11:00`, `13:00`, `13:50`, `14:40`, `15:40` e `16:30`. Os términos confirmados das posições finais são `11:45` e `17:15`. Esses valores não são aplicados a documentos com outra estrutura.
+
+Para os demais períodos, o término precisa vir explicitamente do documento. Se não houver informação suficiente, o campo fica pendente e a revisão é bloqueada. Intervalos entre inícios não são convertidos automaticamente em duração de aula.
+
+### Estados e auditoria
+
+Cada posição pode ser `reconhecido`, `vazio_documento`, `nao_reconhecido` ou `parcial`. Uma disciplina ilegível não elimina a linha: ela permanece editável, com horário, posição, página e aviso quando disponíveis. A interface permite corrigir a leitura e marcar uma célula como vazia somente após conferência.
+
+Depois da resposta da IA, o backend compara posições retornadas, esperadas, vazias, preenchidas, ilegíveis, duplicadas, fora de ordem e possivelmente omitidas. O resumo aparece na importação e também é mantido no diagnóstico da turma. Avisos de cobertura não são resolvidos copiando dados de outra turma.
+
+O PDF real `Horário Info 14.09.26 (1).pdf` não está disponível neste workspace. A validação realizada usa fixtures sintéticas e não representa uma aprovação da extração real. Quando o arquivo for disponibilizado, execute o teste controlado comparando as sete turmas, quatro páginas, dez posições por dia, dias parcialmente vazios e anotações manuscritas.
