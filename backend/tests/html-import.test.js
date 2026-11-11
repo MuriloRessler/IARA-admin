@@ -3,6 +3,7 @@ import test from 'node:test';
 import iconv from 'iconv-lite';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
+import { getAllClasses } from '../src/config/courses.js';
 import { importHtmlSchedules, parseCellValue, parseScheduleHtml } from '../src/services/html-schedule-importer.js';
 
 const config = {
@@ -28,6 +29,30 @@ ${days.map((day, dayIndex) => starts.map((start, position) => {
 
 const htmlBuffer = () => iconv.encode(createHtml(), 'iso-8859-1');
 
+const classPrefix = (course) => course.startsWith('Inform') ? 'INFO'
+  : course.startsWith('Eletrônica') ? 'ELO'
+    : course.startsWith('Eletrotécnica') ? 'ELE'
+      : course.startsWith('Mecânica') ? 'MEC'
+        : course.startsWith('Design') ? 'DES'
+          : course.startsWith('Móveis') ? 'MOV'
+            : course.startsWith('Química') ? 'QUI'
+              : 'MAB';
+
+const classHeader = ({ course, classCode }) => `${classPrefix(course)} ${classCode === '41A' ? '41 A' : classCode}`;
+const fullCatalog = getAllClasses();
+
+const createFullImplicitHeaderHtml = () => `<!doctype html><html><head><meta charset="ISO-8859-1"></head><body><table>
+<tr><td></td><td><font color=""></font></td>${fullCatalog.map((item) => `<td>${classHeader(item)}</td>`).join('')}${Array.from({ length: 12 }, (_item, index) => `<td>Coordenação ${index + 1}</td>`).join('')}</tr>
+${days.map((day, dayIndex) => starts.map((start, position) => `<tr>${position === 0 ? `<td rowspan="10">${day.slice(0, 3)}</td>` : ''}<td>${start}</td>${fullCatalog.map((item) => {
+  const value = item.course.startsWith('Inform') && item.classCode === '63 2' && dayIndex === 0
+    ? ['Literatura (Jeane)', 'Programação (Rodrigo)', 'Programação (Rodrigo)', 'Programação (Rodrigo)', 'Programação (Rodrigo)', 'Filosofia (Luis Evaldo)', 'Língua Portuguesa (Carla)', 'Língua Portuguesa (Carla)', 'Redes de Computadores (Eraí)', 'Redes de Computadores (Eraí)'][position]
+    : '-';
+  return `<td>${value}</td>`;
+}).join('')}${Array.from({ length: 12 }, () => '<td>Reunião</td>').join('')}</tr>`).join('')).join('')}
+</table></body></html>`;
+
+const fullHtmlBuffer = () => iconv.encode(createFullImplicitHeaderHtml(), 'iso-8859-1');
+
 test('HTML parser decodes ISO-8859-1, expands rowspan and parses nested parentheses', () => {
   const parsed = parseScheduleHtml({ html: iconv.decode(htmlBuffer(), 'windows-1252'), fileName: 'Documento de Murilo Ressler.html' });
   assert.equal(parsed.headerColumns, 6);
@@ -40,6 +65,35 @@ test('HTML parser decodes ISO-8859-1, expands rowspan and parses nested parenthe
   assert.equal(info.segunda.posicoes[2].estado, 'vazio_documento');
   assert.equal(parsed.classes.find((item) => item.turma === '41A').segunda.posicoes.every((item) => item.estado === 'vazio_documento'), true);
   assert.equal(parsed.classes.find((item) => item.turma === '23A').segunda.posicoes[0].disciplina, 'Eletrônica');
+});
+
+test('HTML parser accepts empty first headers and expands a 63-column rowspan grid', () => {
+  const parsed = parseScheduleHtml({ html: iconv.decode(fullHtmlBuffer(), 'windows-1252'), fileName: 'Documento de Murilo Ressler.html' });
+  assert.equal(parsed.headerColumns, 63);
+  assert.equal(parsed.logicalColumnCount, 63);
+  assert.equal(parsed.physicalRowWidths[0], 63);
+  assert.equal(parsed.physicalRowWidths[1], 63);
+  assert.equal(parsed.physicalRowWidths[2], 62);
+  assert.equal(parsed.physicalRowWidths[10], 62);
+  assert.equal(parsed.physicalRowWidths[11], 63);
+  assert.equal(parsed.physicalRowWidths[12], 62);
+  assert.equal(parsed.classes.length, 49);
+  assert.equal(parsed.missingClasses.length, 0);
+  assert.equal(parsed.classes.find((item) => item.turma === '63 2').segunda.posicoes.length, 10);
+  assert.equal(parsed.classes.find((item) => item.turma === '63 2').segunda.posicoes[1].disciplina, 'Programação');
+});
+
+test('HTML import keeps all 49 catalog classes and ignores twelve auxiliary columns', () => {
+  const result = importHtmlSchedules({ buffer: fullHtmlBuffer(), fileName: 'horarios.html', mimeType: 'text/html', maxSizeMb: 10 });
+  assert.equal(result.classes.length, 49);
+  assert.equal(Object.keys(result.schedules).length, 49);
+  assert.equal(result.diagnostico.posicoesIdentificadas, 2450);
+  assert.equal(result.schedules['Informática::63 2'].dias.segunda.periodos[6].disciplina, 'Língua Portuguesa');
+  assert.equal(result.schedules['Informática::63 2'].dias.segunda.periodos[6].professor, 'Carla');
+  assert.equal(result.schedules['Informática::63 2'].dias.segunda.periodos[1].disciplina, 'Programação');
+  assert.equal(result.schedules['Informática::63 2'].dias.segunda.periodos[2].disciplina, 'Programação');
+  const periods = Object.values(result.schedules).flatMap((schedule) => Object.values(schedule.dias).flatMap((day) => day.periodos));
+  assert.equal(periods.every((period) => !Object.hasOwn(period, 'fim')), true);
 });
 
 test('cell parser preserves malformed content for human review', () => {

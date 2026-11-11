@@ -72,6 +72,20 @@ const resolveStart = (value) => {
   return match ? `${match[1]}:${match[2]}` : '';
 };
 
+const isBlankHeaderCell = (cell) => !normalizeWhitespace(cell?.text);
+
+const hasImplicitScheduleColumns = (rows) => {
+  if (!rows.length) return false;
+  const dayCounts = Object.fromEntries(DAYS.map((day) => [day, 0]));
+  for (const row of rows) {
+    const day = resolveDay(row?.[0]?.text || '');
+    const start = resolveStart(row?.[1]?.text || '');
+    if (!day || !start) return false;
+    dayCounts[day] += 1;
+  }
+  return DAYS.every((day) => dayCounts[day] === 10);
+};
+
 const balanceParentheses = (value) => {
   let level = 0;
   for (const character of value) {
@@ -186,9 +200,23 @@ export const parseScheduleHtml = ({ html, fileName = 'horarios.html' }) => {
   const headerIndex = expanded.grid.findIndex((row) => row?.some((cell) => resolveClassHeader(cell?.text || '').matches?.length === 1));
   if (headerIndex < 0) throw new ExtractionError('HTML_HEADER_INVALID', 'A linha de cabeçalho não contém turmas reconhecidas do catálogo.', 422);
   const header = expanded.grid[headerIndex];
-  const dayColumn = header.findIndex((cell) => /\bDIA\b/.test(fold(cell?.text)));
-  const startColumn = header.findIndex((cell) => /INICIO|HORARIO|HORA/.test(compact(cell?.text)));
-  if (dayColumn < 0 || startColumn < 0) throw new ExtractionError('HTML_HEADER_INVALID', 'O cabeçalho precisa identificar o dia e o horário de início.', 422);
+  const dataRows = expanded.grid.slice(headerIndex + 1);
+  let dayColumn = header.findIndex((cell) => /\bDIA\b/.test(fold(cell?.text)));
+  let startColumn = header.findIndex((cell) => /INICIO|HORARIO|HORA/.test(compact(cell?.text)));
+  if (dayColumn < 0 || startColumn < 0) {
+    const firstHeadersAreBlank = isBlankHeaderCell(header[0]) && isBlankHeaderCell(header[1]);
+    if (!firstHeadersAreBlank || !hasImplicitScheduleColumns(dataRows)) {
+      throw new ExtractionError('HTML_HEADER_INVALID', 'O cabeçalho precisa identificar o dia e o horário de início, ou possuir duas células iniciais vazias com linhas de dias e horários válidas.', 422);
+    }
+    dayColumn = 0;
+    startColumn = 1;
+  }
+
+  const logicalColumnCount = Math.max(...expanded.grid.map((row) => row?.length || 0));
+  const inconsistentRows = expanded.grid.filter((row) => (row?.length || 0) !== logicalColumnCount);
+  if (logicalColumnCount < 3 || inconsistentRows.length > 0) {
+    throw new ExtractionError('HTML_TABLE_INVALID', `A tabela HTML não possui uma grade lógica consistente (${logicalColumnCount} colunas esperadas em todas as linhas).`, 422, { logicalColumnCount, inconsistentRows: inconsistentRows.length });
+  }
 
   const classColumns = [];
   const warnings = [];
@@ -218,7 +246,7 @@ export const parseScheduleHtml = ({ html, fileName = 'horarios.html' }) => {
   let currentDay = null;
   let structuralWarnings = [];
 
-  for (const row of expanded.grid.slice(headerIndex + 1)) {
+  for (const row of dataRows) {
     const dayCell = row?.[dayColumn];
     const dayText = dayCell?.text || '';
     const detectedDay = resolveDay(dayText);
@@ -267,6 +295,8 @@ export const parseScheduleHtml = ({ html, fileName = 'horarios.html' }) => {
     dayCounts,
     headerColumns: header.length,
     dataRows: expanded.grid.length - headerIndex - 1,
+    logicalColumnCount,
+    physicalRowWidths: expanded.rows.map((row) => $(row).children('th, td').length),
   };
 };
 
