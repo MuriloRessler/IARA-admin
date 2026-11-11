@@ -240,3 +240,11 @@ Na conferência, o botão **Editar aula** abre um formulário com salvar/cancela
 O botão **Dividir período** apresenta as posições aplicáveis do perfil conhecido ou permite informar manualmente os limites quando a estrutura não é conhecida. A divisão exige confirmação, preserva os valores reconhecidos, impede posições duplicadas e remove o registro agrupado apenas depois de criar as células independentes. Células vazias e ilegíveis continuam editáveis e não são descartadas.
 
 O compartilhamento entre turmas continua referenciando o dia inteiro sem copiar ou agrupar períodos. A prévia textual e os rascunhos JSON mantêm todas as ocorrências individuais. Nenhuma alteração desta etapa publica dados no Supabase ou modifica o n8n. O PDF real de referência continua ausente neste workspace; a validação desta etapa usa fixtures e testes sintéticos.
+
+### Complementação de aulas compartilhadas
+
+A Etapa 4.5 mantém as aulas importadas como dados originais e oferece complementações por posição entre turmas parceiras. Uma parceira precisa ser confirmada pelo administrador antes que sugestões sejam geradas. A comparação usa turma, dia, posição e início; uma aula própria nunca é substituída e duas posições vazias continuam vazias.
+
+As sugestões são bidirecionais, idempotentes e não usam sugestões herdadas como fonte. O administrador pode aprovar ou rejeitar cada posição, um par, um dia ou um curso. Sugestões aprovadas aparecem no editor com a origem da turma parceira; uma edição local cria uma substituição manual sem alterar a turma de origem. A prévia textual só inclui complementações aprovadas e grades revisadas.
+
+Os 24 pares iniciais são candidatos configuráveis derivados do catálogo compartilhado. A turma 61 3 não recebe parceira automática. As decisões, sugestões, rejeições e substituições são armazenadas somente no rascunho JSON local versão 3, com compatibilidade de leitura para versões anteriores.

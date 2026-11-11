@@ -5,13 +5,14 @@ import { PdfPreview } from '../components/PdfPreview.jsx';
 import { ScheduleTextPreview } from '../components/ScheduleTextPreview.jsx';
 import { ValidationSummary } from '../components/ValidationSummary.jsx';
 import { WeeklySchedule } from '../components/WeeklySchedule.jsx';
+import { SharedPeriodsPanel } from '../components/SharedPeriodsPanel.jsx';
 
 export function ScheduleReviewPage({
   courses, classes, selectedCourse, selectedClass, onCourseChange, onClassChange,
   schedule, schedules, sources, file, accessToken, validation, onDayChange, onPeriodChange,
   onEditPeriod, onSplitPeriod, onAddPeriod, onRemovePeriod, onShare, onRemoveShare, onImportDraft,
   onReviewDay, onResolveWarning,
-  onExported, onImported, hasChanges,
+  onExported, onImported, hasChanges, sharing, sharingSummary, pairCatalog, suggestions, onConfirmPair, onResetPair, onSetSuggestionStatus, onUpdateSuggestions,
 }) {
   return (
     <div className="page-stack">
@@ -25,6 +26,7 @@ export function ScheduleReviewPage({
         <ClassSelector classes={classes} value={selectedClass} onChange={onClassChange} id="review-class" />
         <div className="selected-class-note"><strong>{selectedClass}</strong><span>{selectedCourse}</span></div>
       </section>
+      <SharedPeriodsPanel courses={courses} selectedCourse={selectedCourse} selectedClass={selectedClass} pairCatalog={pairCatalog} sharing={sharing} sharingSummary={sharingSummary} suggestions={suggestions} onConfirmPair={onConfirmPair} onResetPair={onResetPair} onSetSuggestionStatus={onSetSuggestionStatus} onUpdateSuggestions={onUpdateSuggestions} />
       <div className="review-layout">
         <div className="review-main">
           <ValidationSummary validation={validation} schedule={schedule} />
@@ -35,7 +37,7 @@ export function ScheduleReviewPage({
           <ScheduleTextPreview schedule={schedule} schedules={schedules} />
         </aside>
       </div>
-      <DraftControls schedules={schedules} onImport={onImportDraft} hasChanges={hasChanges} onExported={onExported} onImported={onImported} />
+      <DraftControls schedules={schedules} sharing={sharing} onImport={onImportDraft} hasChanges={hasChanges} onExported={onExported} onImported={onImported} />
       <div className="future-callout"><strong>Publicação no Supabase · Em desenvolvimento</strong><span>A prévia acima é local e não altera a tabela `horarios`.</span></div>
     </div>
   );

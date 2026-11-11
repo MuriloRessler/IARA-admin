@@ -18,7 +18,8 @@ describe('legacy draft migration', () => {
       },
     };
     const migrated = parseDraft(JSON.stringify(payload));
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(3);
+    expect(migrated.sharing.pairDecisions).toEqual({});
     expect(migrated.schedules['Informática::61 1'].dias.segunda.periodos[0]).not.toHaveProperty('fim');
     expect(migrated.schedules['Informática::61 1'].dias.segunda.periodos[0].disciplina).toBe('Programação');
   });

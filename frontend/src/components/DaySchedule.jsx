@@ -62,11 +62,12 @@ export function DaySchedule({ dayDefinition, schedule, schedules, sources, file,
       ) : (
         <div className="period-list">
           {day.periodos.map((period, index) => (
-            <div className="period-row" key={period.id || `${dayKey}-${index}`}>
+            <div className={`period-row ${period.compartilhamentoStatus ? `period-row--${period.compartilhamentoStatus}` : ''}`} key={period.id || `${dayKey}-${index}`}>
               <div className="period-row__time">
                 <label htmlFor={`${period.id}-start`}>Início</label>
                 <input id={`${period.id}-start`} type="time" value={period.inicio} onChange={(event) => onPeriodChange(dayKey, period.id, 'inicio', event.target.value)} />
               </div>
+              {period.compartilhamentoStatus && <small className="period-origin-note">Origem: {period.compartilhamentoStatus === 'sugerida' ? 'sugestão compartilhada' : 'compartilhamento confirmado'} da turma {period.origemCompartilhamento?.turma || 'parceira'}. Edite para criar uma substituição local.</small>}
               <div className="period-row__fields">
                 <label htmlFor={`${period.id}-state`}>Leitura<select id={`${period.id}-state`} value={period.estado || 'reconhecido'} onChange={(event) => onPeriodChange(dayKey, period.id, 'estado', event.target.value)}><option value="reconhecido">Reconhecido</option><option value="vazio_documento">Célula vazia</option><option value="nao_reconhecido">Não reconhecido</option><option value="parcial">Leitura parcial</option></select></label>
                 <label htmlFor={`${period.id}-subject`}>Disciplina<input id={`${period.id}-subject`} value={period.disciplina} onChange={(event) => onPeriodChange(dayKey, period.id, 'disciplina', event.target.value)} placeholder="Disciplina" /></label>

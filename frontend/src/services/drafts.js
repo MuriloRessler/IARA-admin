@@ -1,8 +1,10 @@
 import { courses } from '../config/courses.js';
 import { DAYS, DAY_STATUSES, scheduleKey } from './schedule-model.js';
+import { createSharingState } from '../../../shared/schedule-sharing.js';
 
-export const DRAFT_VERSION = 2;
+export const DRAFT_VERSION = 3;
 export const LEGACY_DRAFT_VERSION = 1;
+export const PREVIOUS_DRAFT_VERSION = 2;
 
 const isKnownClass = (courseName, classCode) => courses.some(
   (course) => course.name === courseName && course.classes.includes(classCode),
@@ -23,13 +25,38 @@ const normalizeSchedule = (schedule) => ({
   }])),
 });
 
-export const createDraftPayload = (schedules) => ({
+const normalizeSharing = (sharing) => ({
+  version: 1,
+  pairDecisions: Object.fromEntries(Object.entries(sharing?.pairDecisions || {}).map(([key, decision]) => [key, {
+    id: decision.id,
+    status: decision.status,
+    first: decision.first,
+    second: decision.second,
+  }])),
+  suggestions: Object.fromEntries(Object.entries(sharing?.suggestions || {}).map(([key, suggestion]) => [key, {
+    id: suggestion.id,
+    pairId: suggestion.pairId,
+    target: suggestion.target,
+    source: suggestion.source,
+    dayKey: suggestion.dayKey,
+    posicao: suggestion.posicao,
+    inicio: suggestion.inicio,
+    sourceFingerprint: suggestion.sourceFingerprint,
+    sourcePeriodId: suggestion.sourcePeriodId || null,
+    period: stripLegacyEnd(suggestion.period || {}),
+    status: suggestion.status,
+    manualOverride: Boolean(suggestion.manualOverride),
+  }])),
+});
+
+export const createDraftPayload = (schedules, sharing = createSharingState()) => ({
   version: DRAFT_VERSION,
   exportedAt: new Date().toISOString(),
   schedules: Object.fromEntries(Object.entries(schedules).map(([key, schedule]) => [key, normalizeSchedule(schedule)])),
+  sharing: normalizeSharing(sharing),
 });
 
-export const serializeDraft = (schedules) => JSON.stringify(createDraftPayload(schedules), null, 2);
+export const serializeDraft = (schedules, sharing) => JSON.stringify(createDraftPayload(schedules, sharing), null, 2);
 
 const validatePeriodData = (period) => isPlainObject(period)
   && typeof period.inicio === 'string'
@@ -38,7 +65,7 @@ const validatePeriodData = (period) => isPlainObject(period)
   && typeof period.sala === 'string';
 
 export const validateDraftPayload = (payload) => {
-  if (!isPlainObject(payload) || ![LEGACY_DRAFT_VERSION, DRAFT_VERSION].includes(payload.version) || !isPlainObject(payload.schedules)) {
+  if (!isPlainObject(payload) || ![LEGACY_DRAFT_VERSION, PREVIOUS_DRAFT_VERSION, DRAFT_VERSION].includes(payload.version) || !isPlainObject(payload.schedules)) {
     throw new Error('Formato de rascunho inválido ou versão não suportada.');
   }
 
@@ -66,9 +93,32 @@ export const validateDraftPayload = (payload) => {
       }
     });
   });
-  return payload.version === LEGACY_DRAFT_VERSION
-    ? { ...payload, version: DRAFT_VERSION, schedules: Object.fromEntries(Object.entries(payload.schedules).map(([key, schedule]) => [key, normalizeSchedule(schedule)])) }
-    : payload;
+  if (payload.version === DRAFT_VERSION) {
+    if (!isPlainObject(payload.sharing) || payload.sharing.version !== 1 || !isPlainObject(payload.sharing.pairDecisions) || !isPlainObject(payload.sharing.suggestions)) {
+      throw new Error('Dados de compartilhamento invÃ¡lidos no rascunho.');
+    }
+    Object.values(payload.sharing.pairDecisions).forEach((decision) => {
+      if (!isPlainObject(decision) || !['pending', 'confirmed'].includes(decision.status) || !isPlainObject(decision.first) || !isPlainObject(decision.second)
+        || !isKnownClass(decision.first.curso, decision.first.turma) || !isKnownClass(decision.second.curso, decision.second.turma)
+        || (decision.first.curso === decision.second.curso && decision.first.turma === decision.second.turma)) {
+        throw new Error('DecisÃ£o de parceira invÃ¡lida no rascunho.');
+      }
+    });
+    Object.values(payload.sharing.suggestions).forEach((suggestion) => {
+      if (!isPlainObject(suggestion) || !['sugerida', 'confirmada', 'rejeitada', 'substituida'].includes(suggestion.status) || !isPlainObject(suggestion.period)
+        || !isPlainObject(suggestion.target) || !isPlainObject(suggestion.source)
+        || !isKnownClass(suggestion.target.curso, suggestion.target.turma) || !isKnownClass(suggestion.source.curso, suggestion.source.turma)) {
+        throw new Error('SugestÃ£o de compartilhamento invÃ¡lida no rascunho.');
+      }
+    });
+    return payload;
+  }
+  return {
+    ...payload,
+    version: DRAFT_VERSION,
+    schedules: Object.fromEntries(Object.entries(payload.schedules).map(([key, schedule]) => [key, normalizeSchedule(schedule)])),
+    sharing: createSharingState(),
+  };
 };
 
 export const parseDraft = (text) => {

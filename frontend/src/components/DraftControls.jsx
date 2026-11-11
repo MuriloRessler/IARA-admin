@@ -1,13 +1,13 @@
 import { useRef, useState } from 'react';
 import { parseDraft, serializeDraft } from '../services/drafts.js';
 
-export function DraftControls({ schedules, onImport, hasChanges, onExported, onImported }) {
+export function DraftControls({ schedules, sharing, onImport, hasChanges, onExported, onImported }) {
   const inputRef = useRef(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   const exportDraft = () => {
-    const blob = new Blob([serializeDraft(schedules)], { type: 'application/json' });
+    const blob = new Blob([serializeDraft(schedules, sharing)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -26,7 +26,7 @@ export function DraftControls({ schedules, onImport, hasChanges, onExported, onI
     if (hasChanges && !window.confirm('Substituir o rascunho atual? Alterações ainda não exportadas serão perdidas.')) return;
     try {
       const payload = parseDraft(await file.text());
-      onImport(payload.schedules);
+      onImport(payload.schedules, payload.sharing);
       setError('');
       setMessage('Rascunho importado e validado localmente.');
       onImported?.();

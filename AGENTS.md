@@ -14,7 +14,7 @@
 - Não declare que o login real foi validado sem uma conta Supabase configurada; use os testes com mocks para a validação automatizada.
 - A Etapa 3 mantém PDFs, grades e rascunhos somente no navegador; não crie endpoints que aparentem persistir esses dados no Supabase.
 - Preserve a fonte única do catálogo em `shared/courses.js`, incluindo os códigos de turma com espaços e letras.
-- Dias vazios devem permanecer pendentes até uma decisão explícita; nunca inferir compartilhamento automaticamente.
+- Dias vazios devem permanecer pendentes até uma decisão explícita; nunca aplicar compartilhamento automaticamente sem uma parceira confirmada. Após a confirmação administrativa, sugestões por posição podem aparecer como pendentes, mas continuam exigindo aprovação.
 - Valide compartilhamentos, ciclos, horários, sobreposições e pendências antes de gerar a prévia textual.
 - Rascunhos JSON não podem conter tokens, sessões, credenciais ou PDFs; valide a versão e a estrutura antes de importar.
 - A Etapa 4.4 usa HTML estruturado como fluxo principal por endpoint protegido, em memória, sem OCR, Tesseract.js ou OpenAI; o PDF/OCR permanece somente como fluxo secundário.
@@ -23,4 +23,5 @@
 - A Etapa 4.1 usa posições estruturais (`posicao`) para preservar linhas repetidas; nunca agrupe períodos pela disciplina, professor, sala ou proximidade.
 - Os términos confirmados de 11:45 e 17:15 pertencem ao perfil de referência de Informática e só são aplicados quando a estrutura do documento for identificada. Não derive término pelo próximo início.
 - Células vazias, ilegíveis e não reconhecidas devem permanecer distintas no modelo e gerar auditoria; não complete lacunas com valores de linhas vizinhas.
+- Complementações entre turmas devem comparar somente as posições originais correspondentes por dia e início, em ambas as direções; preserve aulas próprias, não use sugestões como fonte e mantenha rejeições e substituições manuais no rascunho.
 - O importador HTML deve decodificar ISO-8859-1, expandir `rowspan`, validar cinco dias com dez posições, ignorar colunas de coordenação e resolver turmas exclusivamente por `shared/courses.js`.

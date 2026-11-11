@@ -100,7 +100,8 @@ describe('catalog and schedule domain', () => {
     const schedule = scheduleWithConfirmedDays();
     const schedules = { [scheduleKey(schedule.curso, schedule.turma)]: schedule };
     const parsed = parseDraft(serializeDraft(schedules));
-    expect(parsed.version).toBe(2);
+    expect(parsed.version).toBe(3);
+    expect(parsed.sharing.version).toBe(1);
     expect(parsed.schedules['Informática::61 1'].dias.segunda.periodos[0].disciplina).toBe('Matemática');
     expect(() => parseDraft('{"version":99,"schedules":{}}')).toThrow('versão não suportada');
     expect(() => parseDraft('{"version":1,"schedules":{"bad":{"curso":"X"}}}')).toThrow('Turma inválida');
