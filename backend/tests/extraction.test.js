@@ -3,6 +3,8 @@ import test from 'node:test';
 import request from 'supertest';
 import { PDFDocument } from 'pdf-lib';
 import { createApp } from '../src/app.js';
+import { courses } from '../src/config/courses.js';
+import { ExtractionError } from '../src/services/extraction-errors.js';
 
 const config = {
   allowedOrigins: ['http://localhost:5173'],
@@ -45,7 +47,7 @@ test('POST /api/schedules/extract validates the PDF and normalizes extracted sch
   const response = await request(createExtractionApp({ extract: async () => extracted }))
     .post('/api/schedules/extract')
     .set('Authorization', 'Bearer valid-token')
-    .field('course', 'Informática')
+    .field('course', courses[0].name)
     .attach('file', pdf, { filename: 'horarios.pdf', contentType: 'application/pdf' });
 
   assert.equal(response.statusCode, 200);
@@ -93,4 +95,19 @@ test('POST /api/schedules/cell-preview returns a temporary cell image', async ()
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['content-type'].startsWith('image/png'), true);
   assert.ok(response.body.length > 0);
+});
+
+test('a recoverable extraction error returns an API response and does not stop health checks', async () => {
+  const app = createExtractionApp({ extract: async () => { throw new ExtractionError('OCR_UNAVAILABLE', 'OCR unavailable', 503); } });
+  const pdf = await createPdf();
+  const extractionResponse = await request(app)
+    .post('/api/schedules/extract')
+    .set('Authorization', 'Bearer valid-token')
+    .field('course', courses[0].name)
+    .attach('file', pdf, { filename: 'horarios.pdf', contentType: 'application/pdf' });
+
+  assert.equal(extractionResponse.statusCode, 503);
+  assert.equal(extractionResponse.body.error.code, 'OCR_UNAVAILABLE');
+  const healthResponse = await request(app).get('/api/health');
+  assert.equal(healthResponse.statusCode, 200);
 });

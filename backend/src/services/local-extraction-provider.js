@@ -29,6 +29,7 @@ export const recognizeCell = async ({ page, cell, ocrEngine }) => {
   try {
     return { ...cell, ...source, ...(await ocrEngine.recognize(image)) };
   } catch (error) {
+    if (error.isOcrInitialization) throw error;
     return { ...cell, ...source, estado: 'nao_reconhecido', disciplina: '', professor: '', sala: '', incertezas: [`OCR indisponível para esta célula: ${error.message}`] };
   }
 };

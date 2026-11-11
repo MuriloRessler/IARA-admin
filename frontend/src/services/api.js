@@ -31,14 +31,23 @@ export const extractSchedules = async (file, course, accessToken, calibration = 
   body.append('file', file);
   body.append('course', course);
   if (calibration) body.append('calibration', JSON.stringify(calibration));
-  const response = await fetch(`${apiBaseUrl}/schedules/extract`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
-    body,
-  });
+  let response;
+  try {
+    response = await fetch(`${apiBaseUrl}/schedules/extract`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body,
+    });
+  } catch (error) {
+    const communicationError = new Error('Não foi possível comunicar com o backend durante a extração. Verifique se o servidor está em execução e tente novamente.');
+    communicationError.cause = error;
+    communicationError.code = 'BACKEND_UNREACHABLE';
+    throw communicationError;
+  }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(payload.error?.message || `Extraction failed with HTTP ${response.status}`);
+    const message = typeof payload.error === 'string' ? payload.error : payload.error?.message;
+    const error = new Error(message || `A extração falhou (HTTP ${response.status}).`);
     error.status = response.status;
     error.code = payload.error?.code;
     throw error;

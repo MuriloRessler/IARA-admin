@@ -22,7 +22,9 @@ export function ImportPage({ courses, selectedCourse, accessToken, onCourseChang
       setResult(nextResult);
       setSelectedKeys(Object.keys(nextResult.schedules || {}));
     } catch (requestError) {
-      setError(requestError.message);
+      setError(requestError.code === 'OCR_UNAVAILABLE'
+        ? `${requestError.message} Confira OCR_LANGUAGES e OCR_CACHE_PATH no backend.`
+        : requestError.message);
     } finally {
       setIsExtracting(false);
     }

@@ -177,6 +177,8 @@ OCR_CACHE_PATH=
 
 `EXTRACTION_ENGINE=local` é obrigatório para o novo fluxo. O provider OpenAI permanece somente como compatibilidade opt-in quando `EXTRACTION_ENGINE=openai` for configurado conscientemente no backend; ele não é chamado automaticamente.
 
+Na primeira execução, o Tesseract.js pode baixar os dados `por` e `eng` para `OCR_CACHE_PATH`. O diretório é criado pelo backend quando necessário e deve ter permissão de escrita. Falhas de inicialização do worker retornam `503` tratado, sem encerrar o processo Node.js.
+
 O endpoint `POST /api/schedules/extract` exige o mesmo Bearer token administrativo de `/api/auth/me`, recebe `course` e o arquivo multipart no campo `file`, e retorna apenas dados provisórios para conferência. Não há upload persistente, migração Supabase, alteração da tabela `horarios` ou integração n8n nesta etapa.
 
 ### Limites e validação
