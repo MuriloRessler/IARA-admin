@@ -98,14 +98,14 @@ export const validateDraftPayload = (payload) => {
       throw new Error('Dados de compartilhamento invÃ¡lidos no rascunho.');
     }
     Object.values(payload.sharing.pairDecisions).forEach((decision) => {
-      if (!isPlainObject(decision) || !['pending', 'confirmed'].includes(decision.status) || !isPlainObject(decision.first) || !isPlainObject(decision.second)
+      if (!isPlainObject(decision) || !['pending', 'confirmed', 'automatico'].includes(decision.status) || !isPlainObject(decision.first) || !isPlainObject(decision.second)
         || !isKnownClass(decision.first.curso, decision.first.turma) || !isKnownClass(decision.second.curso, decision.second.turma)
         || (decision.first.curso === decision.second.curso && decision.first.turma === decision.second.turma)) {
         throw new Error('DecisÃ£o de parceira invÃ¡lida no rascunho.');
       }
     });
     Object.values(payload.sharing.suggestions).forEach((suggestion) => {
-      if (!isPlainObject(suggestion) || !['sugerida', 'confirmada', 'rejeitada', 'substituida'].includes(suggestion.status) || !isPlainObject(suggestion.period)
+      if (!isPlainObject(suggestion) || !['automatico', 'sugerida', 'confirmada', 'rejeitada', 'substituida'].includes(suggestion.status) || !isPlainObject(suggestion.period)
         || !isPlainObject(suggestion.target) || !isPlainObject(suggestion.source)
         || !isKnownClass(suggestion.target.curso, suggestion.target.turma) || !isKnownClass(suggestion.source.curso, suggestion.source.turma)) {
         throw new Error('SugestÃ£o de compartilhamento invÃ¡lida no rascunho.');

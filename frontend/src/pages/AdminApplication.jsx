@@ -4,7 +4,7 @@ import { AdminLayout } from '../components/AdminLayout.jsx';
 import { createPeriod, createScheduleBook, getSchedule, scheduleKey } from '../services/schedule-model.js';
 import { validateDay, validateSchedule } from '../services/schedule-validation.js';
 import { replacePeriodWithSplit, updatePeriodRecord } from '../services/schedule-editing.js';
-import { applySharingSuggestions, buildSharingSuggestions, createSharingState, getPairCatalog, pairIdentity, summarizeSharing } from '../../../shared/schedule-sharing.js';
+import { applySharingSuggestions, buildSharingSuggestions, createSharingState, getAutomaticPairDecisions, getPairCatalog, summarizeSharing } from '../../../shared/schedule-sharing.js';
 import { Dashboard } from './Dashboard.jsx';
 import { ImportPage } from './ImportPage.jsx';
 import { ScheduleReviewPage } from './ScheduleReviewPage.jsx';
@@ -24,6 +24,7 @@ export function AdminApplication({ admin, accessToken, onLogout }) {
   const sharingSuggestions = useMemo(() => buildSharingSuggestions({ schedules, sharing }), [schedules, sharing]);
   const consolidatedSchedules = useMemo(() => applySharingSuggestions(schedules, sharingSuggestions), [schedules, sharingSuggestions]);
   const sharingSummary = useMemo(() => summarizeSharing({ schedules, pairDecisions: sharing.pairDecisions, suggestions: sharingSuggestions }), [schedules, sharing, sharingSuggestions]);
+  const sharingConflicts = useMemo(() => getAutomaticPairDecisions({ schedules, sharing }).conflicts, [schedules, sharing]);
   const schedule = getSchedule(consolidatedSchedules, selectedCourse, selectedClass);
   const validation = useMemo(() => validateSchedule(schedule, consolidatedSchedules), [schedule, consolidatedSchedules]);
   const selectedCourseData = courses.find((course) => course.name === selectedCourse);
@@ -42,23 +43,6 @@ export function AdminApplication({ admin, accessToken, onLogout }) {
           return [id, suggestion ? { ...suggestion, status } : { id, status }];
         })),
       },
-    }));
-    setHasChanges(true);
-  };
-
-  const confirmPair = (first, second) => {
-    const id = pairIdentity(first, second);
-    setSharing((current) => ({
-      ...current,
-      pairDecisions: { ...current.pairDecisions, [id]: { id, status: 'confirmed', first, second } },
-    }));
-    setHasChanges(true);
-  };
-
-  const resetPair = (pair) => {
-    setSharing((current) => ({
-      ...current,
-      pairDecisions: { ...current.pairDecisions, [pair.id]: { ...pair, status: 'pending' } },
     }));
     setHasChanges(true);
   };
@@ -105,7 +89,7 @@ export function AdminApplication({ admin, accessToken, onLogout }) {
 
   const changeDay = (dayKey, nextDay) => updateSchedule((current) => {
     const periodos = nextDay.situacao === 'com_aulas'
-      ? nextDay.periodos.filter((period) => !['sugerida', 'confirmada'].includes(period.compartilhamentoStatus))
+      ? nextDay.periodos.filter((period) => period.compartilhamentoStatus !== 'automatico')
       : nextDay.situacao === 'compartilhado' ? [] : nextDay.periodos;
     return {
       ...current,
@@ -233,27 +217,17 @@ export function AdminApplication({ admin, accessToken, onLogout }) {
     if (hasExistingData && !window.confirm('Uma ou mais turmas já possuem dados. Deseja substituí-las pela extração?')) return false;
     const nextSchedules = { ...schedules, ...selectedSchedules };
     setSchedules(nextSchedules);
-    setSharing((current) => ({ ...current, suggestions: {} }));
     const firstSchedule = selectedEntries[0]?.[1];
     if (firstSchedule) { setSelectedCourse(firstSchedule.curso); setSelectedClass(firstSchedule.turma); setActiveView('review'); }
     setHasChanges(true);
     return true;
   };
 
-  const updateSuggestions = (filter, status) => {
-    const ids = sharingSuggestions.filter((suggestion) => suggestion.status === 'sugerida' && Object.entries(filter || {}).every(([key, value]) => {
-      if (key === 'curso') return suggestion.target.curso === value;
-      if (key === 'turma') return suggestion.target.turma === value;
-      return suggestion[key] === value;
-    })).map((suggestion) => suggestion.id);
-    if (ids.length) setSuggestionStatus(ids, status);
-  };
-
   const content = activeView === 'overview'
     ? <Dashboard totalClasses={totalClasses} onNavigate={setActiveView} />
     : activeView === 'import'
       ? <ImportPage courses={courses} selectedCourse={selectedCourse} accessToken={accessToken} onCourseChange={changeCourse} file={selectedFile} onFileChange={setSelectedFile} onRemoveFile={() => setSelectedFile(null)} onContinue={() => setActiveView('review')} onImportExtracted={importExtractedSchedules} />
-      : <ScheduleReviewPage courses={courses} classes={selectedCourseData.classes} selectedCourse={selectedCourse} selectedClass={selectedClass} onCourseChange={changeCourse} onClassChange={setSelectedClass} schedule={schedule} schedules={consolidatedSchedules} sources={sources} file={selectedFile} accessToken={accessToken} validation={validation} onDayChange={changeDay} onPeriodChange={changePeriod} onEditPeriod={editPeriod} onSplitPeriod={splitPeriod} onAddPeriod={addPeriod} onRemovePeriod={removePeriod} onShare={shareDay} onRemoveShare={removeShare} onReviewDay={reviewDay} onResolveWarning={resolveWarning} onImportDraft={importDraft} onExported={() => setHasChanges(false)} onImported={() => setHasChanges(true)} hasChanges={hasChanges} sharing={sharing} sharingSummary={sharingSummary} pairCatalog={getPairCatalog()} suggestions={sharingSuggestions} onConfirmPair={confirmPair} onResetPair={resetPair} onSetSuggestionStatus={setSuggestionStatus} onUpdateSuggestions={updateSuggestions} />;
+      : <ScheduleReviewPage courses={courses} classes={selectedCourseData.classes} selectedCourse={selectedCourse} selectedClass={selectedClass} onCourseChange={changeCourse} onClassChange={setSelectedClass} schedule={schedule} schedules={consolidatedSchedules} rawSchedules={schedules} sources={sources} file={selectedFile} accessToken={accessToken} validation={validation} onDayChange={changeDay} onPeriodChange={changePeriod} onEditPeriod={editPeriod} onSplitPeriod={splitPeriod} onAddPeriod={addPeriod} onRemovePeriod={removePeriod} onShare={shareDay} onRemoveShare={removeShare} onReviewDay={reviewDay} onResolveWarning={resolveWarning} onImportDraft={importDraft} onExported={() => setHasChanges(false)} onImported={() => setHasChanges(true)} hasChanges={hasChanges} sharing={sharing} sharingSummary={sharingSummary} pairCatalog={getPairCatalog()} suggestions={sharingSuggestions} conflicts={sharingConflicts} onSetSuggestionStatus={setSuggestionStatus} />;
 
   return <AdminLayout admin={admin} activeView={activeView} onNavigate={setActiveView} onLogout={onLogout}>{content}</AdminLayout>;
 }

@@ -9,10 +9,10 @@ import { SharedPeriodsPanel } from '../components/SharedPeriodsPanel.jsx';
 
 export function ScheduleReviewPage({
   courses, classes, selectedCourse, selectedClass, onCourseChange, onClassChange,
-  schedule, schedules, sources, file, accessToken, validation, onDayChange, onPeriodChange,
+  schedule, schedules, rawSchedules, sources, file, accessToken, validation, onDayChange, onPeriodChange,
   onEditPeriod, onSplitPeriod, onAddPeriod, onRemovePeriod, onShare, onRemoveShare, onImportDraft,
   onReviewDay, onResolveWarning,
-  onExported, onImported, hasChanges, sharing, sharingSummary, pairCatalog, suggestions, onConfirmPair, onResetPair, onSetSuggestionStatus, onUpdateSuggestions,
+  onExported, onImported, hasChanges, sharing, sharingSummary, pairCatalog, suggestions, conflicts, onSetSuggestionStatus,
 }) {
   return (
     <div className="page-stack">
@@ -26,7 +26,7 @@ export function ScheduleReviewPage({
         <ClassSelector classes={classes} value={selectedClass} onChange={onClassChange} id="review-class" />
         <div className="selected-class-note"><strong>{selectedClass}</strong><span>{selectedCourse}</span></div>
       </section>
-      <SharedPeriodsPanel courses={courses} selectedCourse={selectedCourse} selectedClass={selectedClass} pairCatalog={pairCatalog} sharing={sharing} sharingSummary={sharingSummary} suggestions={suggestions} onConfirmPair={onConfirmPair} onResetPair={onResetPair} onSetSuggestionStatus={onSetSuggestionStatus} onUpdateSuggestions={onUpdateSuggestions} />
+      <SharedPeriodsPanel selectedCourse={selectedCourse} selectedClass={selectedClass} pairCatalog={pairCatalog} sharingSummary={sharingSummary} suggestions={suggestions} conflicts={conflicts} rawSchedules={rawSchedules} onSetSuggestionStatus={onSetSuggestionStatus} />
       <div className="review-layout">
         <div className="review-main">
           <ValidationSummary validation={validation} schedule={schedule} />

@@ -243,8 +243,8 @@ O compartilhamento entre turmas continua referenciando o dia inteiro sem copiar 
 
 ### Complementação de aulas compartilhadas
 
-A Etapa 4.5 mantém as aulas importadas como dados originais e oferece complementações por posição entre turmas parceiras. Uma parceira precisa ser confirmada pelo administrador antes que sugestões sejam geradas. A comparação usa turma, dia, posição e início; uma aula própria nunca é substituída e duas posições vazias continuam vazias.
+A Etapa 4.6 mantém as aulas importadas como dados originais e reconhece automaticamente os 24 pares oficiais do catálogo. A comparação usa turma, dia, posição e início; uma aula própria nunca é substituída e duas posições vazias continuam vazias. A turma 61 3 permanece independente.
 
-As sugestões são bidirecionais, idempotentes e não usam sugestões herdadas como fonte. O administrador pode aprovar ou rejeitar cada posição, um par, um dia ou um curso. Sugestões aprovadas aparecem no editor com a origem da turma parceira; uma edição local cria uma substituição manual sem alterar a turma de origem. A prévia textual só inclui complementações aprovadas e grades revisadas.
+As complementações são bidirecionais, idempotentes e não usam dados herdados como fonte. Elas aparecem imediatamente no editor com a origem da turma parceira, sem confirmação individual. O administrador ainda pode editar uma posição para criar uma substituição local, desfazer uma complementação específica ou restaurá-la depois, sem alterar a turma de origem. A prévia textual inclui aulas próprias, automáticas e substituições manuais, desde que a revisão geral da grade esteja concluída.
 
-Os 24 pares iniciais são candidatos configuráveis derivados do catálogo compartilhado. A turma 61 3 não recebe parceira automática. As decisões, sugestões, rejeições e substituições são armazenadas somente no rascunho JSON local versão 3, com compatibilidade de leitura para versões anteriores.
+Os 24 pares oficiais são derivados do catálogo compartilhado e aplicados quando as duas turmas estiverem disponíveis. Parcerias manuais não oficiais preservadas em rascunhos antigos são sinalizadas para revisão e não substituem silenciosamente a regra oficial. Sugestões, rejeições e substituições são armazenadas somente no rascunho JSON local versão 3, com compatibilidade de leitura para versões anteriores.

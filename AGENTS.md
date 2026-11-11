@@ -14,7 +14,7 @@
 - Não declare que o login real foi validado sem uma conta Supabase configurada; use os testes com mocks para a validação automatizada.
 - A Etapa 3 mantém PDFs, grades e rascunhos somente no navegador; não crie endpoints que aparentem persistir esses dados no Supabase.
 - Preserve a fonte única do catálogo em `shared/courses.js`, incluindo os códigos de turma com espaços e letras.
-- Dias vazios devem permanecer pendentes até uma decisão explícita; nunca aplicar compartilhamento automaticamente sem uma parceira confirmada. Após a confirmação administrativa, sugestões por posição podem aparecer como pendentes, mas continuam exigindo aprovação.
+- Dias vazios devem permanecer pendentes até uma decisão explícita; os pares oficiais do catálogo recebem complementação automática somente em células vazias correspondentes. Rejeições e substituições manuais devem ser preservadas e não há aprovação separada da parceria.
 - Valide compartilhamentos, ciclos, horários, sobreposições e pendências antes de gerar a prévia textual.
 - Rascunhos JSON não podem conter tokens, sessões, credenciais ou PDFs; valide a versão e a estrutura antes de importar.
 - A Etapa 4.4 usa HTML estruturado como fluxo principal por endpoint protegido, em memória, sem OCR, Tesseract.js ou OpenAI; o PDF/OCR permanece somente como fluxo secundário.

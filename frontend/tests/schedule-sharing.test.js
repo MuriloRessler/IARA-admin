@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySharingSuggestions, buildSharingSuggestions, createSharingState, getPairCatalog } from '../../shared/schedule-sharing.js';
+import { applySharingSuggestions, buildSharingSuggestions, createSharingState, getAutomaticPairDecisions, getPairCatalog } from '../../shared/schedule-sharing.js';
 import { createEmptySchedule, scheduleKey } from '../src/services/schedule-model.js';
 import { parseDraft, serializeDraft } from '../src/services/drafts.js';
 
@@ -40,6 +40,16 @@ describe('period-by-period schedule sharing', () => {
     expect(getPairCatalog().some((pair) => pair.first.turma === '61 3' || pair.second.turma === '61 3')).toBe(false);
   });
 
+  it('recognizes every official pair as automatic when both schedules are imported', () => {
+    const schedules = Object.fromEntries(getPairCatalog().flatMap((pair) => [pair.first, pair.second])
+      .filter((entry, index, entries) => entries.findIndex((candidate) => scheduleKey(candidate.curso, candidate.turma) === scheduleKey(entry.curso, entry.turma)) === index)
+      .map((entry) => {
+        const value = schedule(entry.turma, { 1: `${entry.turma} aula` }, entry.curso);
+        return [scheduleKey(entry.curso, entry.turma), value];
+      }));
+    expect(getAutomaticPairDecisions({ schedules }).pairs).toHaveLength(24);
+  });
+
   it('complements both directions from original periods without grouping or duplication', () => {
     const first = schedule('61 1', { 1: 'Matemática', 2: 'Matemática', 3: 'Sites', 4: 'Sites', 5: 'Sites' });
     const second = schedule('61 2', { 6: 'Educação Física', 7: 'Modelagem', 8: 'Modelagem', 9: 'Modelagem', 10: 'Modelagem' });
@@ -50,7 +60,7 @@ describe('period-by-period schedule sharing', () => {
     expect(suggestions.filter((suggestion) => suggestion.target.turma === '61 1')).toHaveLength(5);
     expect(suggestions.filter((suggestion) => suggestion.target.turma === '61 2')).toHaveLength(5);
     const consolidated = applySharingSuggestions(schedules, suggestions);
-    expect(consolidated['Informática::61 1'].dias.quinta.periodos[5].compartilhamentoStatus).toBe('sugerida');
+    expect(consolidated['Informática::61 1'].dias.quinta.periodos[5].compartilhamentoStatus).toBe('automatico');
     expect(consolidated['Informática::61 2'].dias.quinta.periodos[0].disciplina).toBe('Matemática');
     expect(applySharingSuggestions(consolidated, suggestions)['Informática::61 2'].dias.quinta.periodos).toHaveLength(10);
   });
@@ -109,8 +119,46 @@ describe('period-by-period schedule sharing', () => {
     const decision = pairDecision('61 3', '61 1');
     const withoutDecision = buildSharingSuggestions({ schedules, sharing: createSharingState() });
     expect(withoutDecision).toHaveLength(0);
-    const suggestions = buildSharingSuggestions({ schedules, sharing: { ...createSharingState(), pairDecisions: { [decision.id]: decision } } });
-    expect(suggestions.some((suggestion) => suggestion.target.turma === '61 1' && suggestion.inicio === '07:30')).toBe(true);
+    const sharing = { ...createSharingState(), pairDecisions: { [decision.id]: decision } };
+    const suggestions = buildSharingSuggestions({ schedules, sharing });
+    expect(suggestions.some((suggestion) => suggestion.target.turma === '61 1' && suggestion.inicio === '07:30')).toBe(false);
+    expect(getAutomaticPairDecisions({ schedules, sharing }).conflicts).toHaveLength(1);
+  });
+
+  it('keeps an official pair automatic without any confirmation record', () => {
+    const first = schedule('61 1', { 1: 'Aula 1' });
+    const second = schedule('61 2', {});
+    const schedules = { [scheduleKey(first.curso, first.turma)]: first, [scheduleKey(second.curso, second.turma)]: second };
+    const suggestions = buildSharingSuggestions({ schedules });
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions.every((suggestion) => suggestion.status === 'automatico')).toBe(true);
+  });
+
+  it('preserves an intentional removal and allows the same cell to be restored', () => {
+    const first = schedule('11A', { 1: 'Eletrônica' }, 'Eletrônica');
+    const second = schedule('11B', {}, 'Eletrônica');
+    const schedules = { [scheduleKey(first.curso, first.turma)]: first, [scheduleKey(second.curso, second.turma)]: second };
+    const initial = buildSharingSuggestions({ schedules });
+    const rejected = { ...createSharingState(), suggestions: { [initial[0].id]: { ...initial[0], status: 'rejeitada' } } };
+    const excluded = buildSharingSuggestions({ schedules, sharing: rejected });
+    expect(excluded[0].status).toBe('rejeitada');
+    expect(applySharingSuggestions(schedules, excluded)['Eletrônica::11B'].dias.quinta.periodos[0].disciplina).toBe('');
+    const restored = buildSharingSuggestions({ schedules, sharing: { ...rejected, suggestions: { [initial[0].id]: { ...initial[0], status: 'automatico' } } } });
+    expect(applySharingSuggestions(schedules, restored)['Eletrônica::11B'].dias.quinta.periodos[0].disciplina).toBe('Eletrônica');
+  });
+
+  it('updates an automatic complement when the original source changes', () => {
+    const first = schedule('11A', { 1: 'Original' }, 'Eletrônica');
+    const second = schedule('11B', {}, 'Eletrônica');
+    const schedules = { [scheduleKey(first.curso, first.turma)]: first, [scheduleKey(second.curso, second.turma)]: second };
+    const initial = buildSharingSuggestions({ schedules });
+    const changedSource = schedule('11A', { 1: 'Atualizada' }, 'Eletrônica');
+    const changedSchedules = { [scheduleKey(changedSource.curso, changedSource.turma)]: changedSource, [scheduleKey(second.curso, second.turma)]: second };
+    const previous = initial.find((item) => item.target.turma === '11B');
+    const next = buildSharingSuggestions({ schedules: changedSchedules, sharing: { ...createSharingState(), suggestions: { [previous.id]: previous } } });
+    const target = next.find((suggestion) => suggestion.target.turma === '11B');
+    expect(target.status).toBe('automatico');
+    expect(target.period.disciplina).toBe('Atualizada');
   });
 
   it('round-trips confirmed pair decisions in draft version 3', () => {
