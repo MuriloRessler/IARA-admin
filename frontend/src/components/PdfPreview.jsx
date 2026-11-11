@@ -4,7 +4,7 @@ export function PdfPreview({ file }) {
   const [previewUrl, setPreviewUrl] = useState('');
 
   useEffect(() => {
-    if (!file) {
+    if (!file || !file.name?.toLowerCase().endsWith('.pdf')) {
       setPreviewUrl('');
       return undefined;
     }
@@ -12,6 +12,8 @@ export function PdfPreview({ file }) {
     setPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
+
+  if (file && !file.name?.toLowerCase().endsWith('.pdf')) return null;
 
   return (
     <section className="panel-card pdf-preview" aria-labelledby="pdf-preview-title">

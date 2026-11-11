@@ -11,7 +11,8 @@ export const errorHandler = (error, _request, response, _next) => {
     return;
   }
   if (error.code === 'LIMIT_FILE_SIZE') {
-    response.status(413).json({ error: { code: 'PDF_TOO_LARGE', message: 'O PDF excede o limite configurado.' } });
+    const isHtml = _request.originalUrl.includes('/import-html');
+    response.status(413).json({ error: { code: isHtml ? 'HTML_TOO_LARGE' : 'PDF_TOO_LARGE', message: isHtml ? 'O HTML excede o limite configurado.' : 'O PDF excede o limite configurado.' } });
     return;
   }
   console.error(error);

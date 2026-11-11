@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react';
-import { formatFileSize, validatePdfFile } from '../services/pdf.js';
+import { formatFileSize, validateImportFile } from '../services/pdf.js';
+
+const isPdf = (file) => file?.name?.toLowerCase().endsWith('.pdf');
 
 export function PdfUpload({ file, onFileChange, onRemove }) {
   const inputRef = useRef(null);
   const [error, setError] = useState('');
 
   const selectFile = (candidate) => {
-    const result = validatePdfFile(candidate);
+    const result = validateImportFile(candidate);
     if (!result.valid) {
       setError(result.error);
       return;
@@ -32,7 +34,7 @@ export function PdfUpload({ file, onFileChange, onRemove }) {
           <p className="eyebrow">Arquivo local</p>
           <h2 id="pdf-upload-title">Importar horários</h2>
         </div>
-        <span className="panel-note">Limite: 20 MB</span>
+        <span className="panel-note">HTML: 10 MB · PDF: 20 MB</span>
       </div>
       <div
         className={`drop-zone ${file ? 'drop-zone--selected' : ''}`}
@@ -41,7 +43,7 @@ export function PdfUpload({ file, onFileChange, onRemove }) {
       >
         {file ? (
           <div className="file-summary">
-            <span className="file-icon" aria-hidden="true">PDF</span>
+            <span className="file-icon" aria-hidden="true">{isPdf(file) ? 'PDF' : 'HTML'}</span>
             <div>
               <strong>{file.name}</strong>
               <span>{formatFileSize(file.size)}</span>
@@ -50,18 +52,18 @@ export function PdfUpload({ file, onFileChange, onRemove }) {
         ) : (
           <>
             <span className="drop-zone__icon" aria-hidden="true">↑</span>
-            <strong>Arraste um PDF para esta área</strong>
-            <span>ou selecione um arquivo no seu computador</span>
+            <strong>Arraste um HTML ou PDF para esta área</strong>
+            <span>O HTML estruturado é o fluxo principal; o PDF permanece como alternativa.</span>
           </>
         )}
         <button className="secondary-button" type="button" onClick={() => inputRef.current?.click()}>
-          {file ? 'Substituir PDF' : 'Selecionar PDF'}
+          {file ? 'Substituir arquivo' : 'Selecionar arquivo'}
         </button>
-        <input ref={inputRef} className="visually-hidden" type="file" accept="application/pdf,.pdf" onChange={handleInput} />
+        <input ref={inputRef} className="visually-hidden" type="file" accept="application/pdf,.pdf,text/html,.html,.htm" onChange={handleInput} />
       </div>
       {file && (
         <div className="upload-success" role="status">
-          PDF selecionado. A extração automática será disponibilizada em uma próxima etapa.
+          {isPdf(file) ? 'PDF selecionado para o fluxo secundário.' : 'HTML selecionado para importação estruturada.'}
           <button className="text-button" type="button" onClick={() => { setError(''); onRemove(); }}>Remover arquivo</button>
         </div>
       )}

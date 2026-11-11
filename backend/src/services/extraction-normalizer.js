@@ -9,10 +9,10 @@ const validTime = (value) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value || '');
 const warning = (message, page = null) => ({ id: `${Date.now()}-${Math.random()}`, message, page, resolvido: false });
 const safeId = (value) => normalizeText(value).replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
 
-const createSchedule = (course, classCode, association) => ({
+const createSchedule = (course, classCode, association, origin = 'extracao') => ({
   curso: course,
   turma: classCode,
-  origem: 'extracao',
+  origem: origin,
   revisao: 'nao_revisado',
   avisos: [],
   associacaoTurma: association || { regiao: null, confianca: 'nao_identificada' },
@@ -118,7 +118,7 @@ const normalizeDay = ({ rawDay = {}, dayKey, profile, scheduleId }) => {
   return { day, audit: positionAudit };
 };
 
-export const normalizeExtraction = ({ extracted, courseName, fileName, pageCount }) => {
+export const normalizeExtraction = ({ extracted, courseName, fileName, pageCount, origin = 'extracao' }) => {
   const course = getCourse(courseName);
   if (!course) throw new Error('Unknown course');
   const profile = detectScheduleProfile({ courseName: course.name, pageCount, extracted });
@@ -136,7 +136,7 @@ export const normalizeExtraction = ({ extracted, courseName, fileName, pageCount
     }
     const association = extractedClass.turmaAssociacao || { regiao: null, confianca: 'nao_identificada' };
     const scheduleId = `${safeId(course.name)}-${safeId(classCode)}`;
-    const schedule = createSchedule(course.name, classCode, association);
+    const schedule = createSchedule(course.name, classCode, association, origin);
     const audit = { turma: classCode, dias: {} };
     for (const day of DAYS) {
       const normalized = normalizeDay({ rawDay: extractedClass[day], dayKey: day, profile, scheduleId });

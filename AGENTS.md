@@ -17,9 +17,10 @@
 - Dias vazios devem permanecer pendentes até uma decisão explícita; nunca inferir compartilhamento automaticamente.
 - Valide compartilhamentos, ciclos, horários, sobreposições e pendências antes de gerar a prévia textual.
 - Rascunhos JSON não podem conter tokens, sessões, credenciais ou PDFs; valide a versão e a estrutura antes de importar.
-- A Etapa 4 envia PDFs somente por endpoint protegido, em memória, para o provider OpenAI configurado no backend; nunca exponha `OPENAI_API_KEY` no frontend.
+- A Etapa 4.4 usa HTML estruturado como fluxo principal por endpoint protegido, em memória, sem OCR, Tesseract.js ou OpenAI; o PDF/OCR permanece somente como fluxo secundário.
 - A extração automática é provisória: toda turma importada inicia como `nao_revisado`, avisos e dias não reconhecidos exigem conferência humana e nenhuma publicação é feita.
 - Use `OPENAI_MODEL`, `PDF_MAX_SIZE_MB`, `PDF_MAX_PAGES` e `EXTRACTION_TIMEOUT_MS` para configuração; não chame a API real em testes automatizados.
 - A Etapa 4.1 usa posições estruturais (`posicao`) para preservar linhas repetidas; nunca agrupe períodos pela disciplina, professor, sala ou proximidade.
 - Os términos confirmados de 11:45 e 17:15 pertencem ao perfil de referência de Informática e só são aplicados quando a estrutura do documento for identificada. Não derive término pelo próximo início.
 - Células vazias, ilegíveis e não reconhecidas devem permanecer distintas no modelo e gerar auditoria; não complete lacunas com valores de linhas vizinhas.
+- O importador HTML deve decodificar ISO-8859-1, expandir `rowspan`, validar cinco dias com dez posições, ignorar colunas de coordenação e resolver turmas exclusivamente por `shared/courses.js`.

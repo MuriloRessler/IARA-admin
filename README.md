@@ -227,6 +227,14 @@ O PDF real `Horário Info 14.09.26 (1).pdf` não está disponível neste workspa
 
 Cada linha extraída possui identidade própria, posição, horário, conteúdo, página, estado de reconhecimento e revisão. A resposta estruturada pode declarar `posicoesAssociadas` somente quando o PDF comprovar visualmente uma célula mesclada; com um perfil de horário confirmado, o backend expande esse bloco em períodos independentes usando as posições configuradas. A duração aparente do bloco nunca é usada sozinha para inventar posições. Sem evidência suficiente, o bloco permanece preservado e pendente de decisão humana.
 
+### Importação HTML estruturada
+
+O fluxo principal da Etapa 4.4 aceita um arquivo `.html` ou `.htm` exportado pelo sistema de horários. O backend decodifica o documento em memória, sem executar scripts ou carregar recursos externos, expande células com `rowspan`, valida cinco dias com dez posições e lê todas as turmas em uma única tabela. As colunas de coordenação e reunião são ignoradas.
+
+As turmas são reconhecidas exclusivamente pelo catálogo compartilhado em `shared/courses.js`. Cabeçalhos desconhecidos, classes ausentes, células vazias (`-`), células ilegíveis e dias totalmente vazios permanecem identificados no diagnóstico para conferência humana. Cada posição é preservada individualmente; o importador não cria horários de término, não agrupa disciplinas repetidas e não publica dados no Supabase.
+
+O endpoint protegido é `POST /api/schedules/import-html`, com o arquivo multipart no campo `file`. O limite é configurado por `HTML_MAX_SIZE_MB` (10 MB por padrão). O frontend apresenta o resumo por curso e permite filtrar e selecionar turmas antes de reutilizar o editor existente. O HTML importado nunca é renderizado com `dangerouslySetInnerHTML`.
+
 Na conferência, o botão **Editar aula** abre um formulário com salvar/cancelar para o período selecionado. Horários, posição, disciplina, professor, sala, estado de reconhecimento e página podem ser corrigidos; sobreposições, limites inválidos e campos pendentes bloqueiam a gravação. Toda alteração invalida a revisão do dia e do período.
 
 O botão **Dividir período** apresenta as posições aplicáveis do perfil conhecido ou permite informar manualmente os limites quando a estrutura não é conhecida. A divisão exige confirmação, preserva os valores reconhecidos, impede posições duplicadas e remove o registro agrupado apenas depois de criar as células independentes. Células vazias e ilegíveis continuam editáveis e não são descartadas.
