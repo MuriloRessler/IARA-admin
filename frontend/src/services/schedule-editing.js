@@ -1,14 +1,13 @@
-import { isValidTime, timeToMinutes } from './schedule-validation.js';
+import { isValidTime } from './schedule-validation.js';
 
-const uniquePositions = (slots) => new Set(slots.map((slot) => slot.posicao)).size === slots.length;
+const uniquePositions = (slots) => new Set(slots.map((slot) => Number(slot.posicao))).size === slots.length;
 
 export const validateSplitSlots = (slots) => {
   if (!Array.isArray(slots) || slots.length < 2) return 'Selecione pelo menos duas posições para dividir o período.';
   if (!uniquePositions(slots)) return 'As posições da divisão não podem se repetir.';
   for (const slot of slots) {
     if (!Number.isInteger(Number(slot.posicao)) || Number(slot.posicao) < 1) return 'Informe uma posição válida para cada célula.';
-    if (!isValidTime(slot.inicio) || !isValidTime(slot.fim)) return 'Informe início e término válidos para todas as células.';
-    if (timeToMinutes(slot.fim) <= timeToMinutes(slot.inicio)) return 'O término de cada célula deve ser posterior ao início.';
+    if (!isValidTime(slot.inicio)) return 'Informe um horário de início válido para todas as células.';
   }
   return null;
 };
@@ -28,9 +27,7 @@ export const splitPeriodRecords = (period, slots) => {
     id: `${period.id}-split-${Number(slot.posicao)}`,
     posicao: Number(slot.posicao),
     inicio: slot.inicio,
-    fim: slot.fim,
     inicioPendente: false,
-    fimPendente: false,
     revisao: 'nao_revisado',
     origemEdicao: 'manual',
     incertezas: index === 0 ? period.incertezas : [],

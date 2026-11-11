@@ -11,7 +11,7 @@ const scheduleWithConfirmedDays = (course = 'Informática', classCode = '61 1') 
   schedule.dias.segunda = {
     situacao: 'com_aulas',
     compartilhamento: null,
-    periodos: [{ id: 'one', inicio: '07:30', fim: '08:20', disciplina: 'Matemática', professor: 'Ana', sala: 'A1' }],
+    periodos: [{ id: 'one', inicio: '07:30', disciplina: 'Matemática', professor: 'Ana', sala: 'A1' }],
   };
   ['terca', 'quarta', 'quinta', 'sexta'].forEach((day) => {
     schedule.dias[day] = { situacao: 'sem_aulas', compartilhamento: null, periodos: [] };
@@ -34,18 +34,18 @@ describe('catalog and schedule domain', () => {
     const text = formatScheduleText(schedule, schedules);
     expect(text).toContain('TURMA: 61 1');
     expect(text).toContain('SEGUNDA-FEIRA');
-    expect(text).toContain('07:30 - 08:20 - Matemática | Professor: Ana | Sala: A1');
+    expect(text).toContain('07:30 - Matemática | Professor: Ana | Sala: A1');
     expect(text).toContain('SEM AULAS CONFIRMADAS');
   });
 
   it('blocks a schedule with pending days and overlapping periods', () => {
     const schedule = scheduleWithConfirmedDays();
-    schedule.dias.segunda.periodos.push({ id: 'two', inicio: '08:00', fim: '09:00', disciplina: 'Física', professor: '', sala: '' });
+    schedule.dias.segunda.periodos.push({ id: 'two', inicio: '07:30', disciplina: 'Física', professor: '', sala: '' });
     schedule.dias.terca = { situacao: 'pendente', compartilhamento: null, periodos: [] };
     const schedules = { [scheduleKey(schedule.curso, schedule.turma)]: schedule };
     const validation = validateSchedule(schedule, schedules);
     expect(validation.valid).toBe(false);
-    expect(validation.issues.some((issue) => issue.message.includes('sobreposição'))).toBe(true);
+    expect(validation.issues.some((issue) => issue.message.includes('duplicados'))).toBe(true);
     expect(() => formatScheduleText(schedule, schedules)).toThrow('pendências');
   });
 
@@ -61,9 +61,9 @@ describe('catalog and schedule domain', () => {
   it('keeps repeated periods and document-empty positions in the text preview', () => {
     const schedule = scheduleWithConfirmedDays();
     schedule.dias.segunda.periodos = [
-      { id: 'one', posicao: 1, estado: 'reconhecido', inicio: '13:00', fim: '13:50', disciplina: 'Química', professor: '', sala: '' },
-      { id: 'two', posicao: 2, estado: 'reconhecido', inicio: '13:50', fim: '14:40', disciplina: 'Química', professor: '', sala: '' },
-      { id: 'three', posicao: 3, estado: 'vazio_documento', inicio: '14:40', fim: '15:40', disciplina: '', professor: '', sala: '' },
+      { id: 'one', posicao: 1, estado: 'reconhecido', inicio: '13:00', disciplina: 'Química', professor: '', sala: '' },
+      { id: 'two', posicao: 2, estado: 'reconhecido', inicio: '13:50', disciplina: 'Química', professor: '', sala: '' },
+      { id: 'three', posicao: 3, estado: 'vazio_documento', inicio: '14:40', disciplina: '', professor: '', sala: '' },
     ];
     const schedules = { [scheduleKey(schedule.curso, schedule.turma)]: schedule };
     const text = formatScheduleText(schedule, schedules);
@@ -100,7 +100,7 @@ describe('catalog and schedule domain', () => {
     const schedule = scheduleWithConfirmedDays();
     const schedules = { [scheduleKey(schedule.curso, schedule.turma)]: schedule };
     const parsed = parseDraft(serializeDraft(schedules));
-    expect(parsed.version).toBe(1);
+    expect(parsed.version).toBe(2);
     expect(parsed.schedules['Informática::61 1'].dias.segunda.periodos[0].disciplina).toBe('Matemática');
     expect(() => parseDraft('{"version":99,"schedules":{}}')).toThrow('versão não suportada');
     expect(() => parseDraft('{"version":1,"schedules":{"bad":{"curso":"X"}}}')).toThrow('Turma inválida');
@@ -108,10 +108,10 @@ describe('catalog and schedule domain', () => {
 
   it('edits only the selected period and invalidates its review', () => {
     const periods = [
-      { id: 'one', posicao: 1, inicio: '07:30', fim: '08:20', disciplina: 'Programação', revisao: 'revisado' },
-      { id: 'two', posicao: 2, inicio: '08:20', fim: '09:10', disciplina: 'Programação', revisao: 'revisado' },
-      { id: 'three', posicao: 3, inicio: '09:10', fim: '10:10', disciplina: 'Programação', revisao: 'revisado' },
-      { id: 'four', posicao: 4, inicio: '10:10', fim: '11:00', disciplina: 'Programação', revisao: 'revisado' },
+      { id: 'one', posicao: 1, inicio: '07:30', disciplina: 'Programação', revisao: 'revisado' },
+      { id: 'two', posicao: 2, inicio: '08:20', disciplina: 'Programação', revisao: 'revisado' },
+      { id: 'three', posicao: 3, inicio: '09:10', disciplina: 'Programação', revisao: 'revisado' },
+      { id: 'four', posicao: 4, inicio: '10:10', disciplina: 'Programação', revisao: 'revisado' },
     ];
     const next = periods.map((period) => period.id === 'three' ? updatePeriodRecord(period, { disciplina: 'Química' }) : period);
     expect(next[2].disciplina).toBe('Química');
@@ -122,12 +122,12 @@ describe('catalog and schedule domain', () => {
   });
 
   it('splits a grouped period into independent cells without duplicates', () => {
-    const periods = [{ id: 'grouped', posicao: 2, inicio: '08:20', fim: '11:00', disciplina: 'Programação', professor: 'Ana', sala: 'A1' }];
+    const periods = [{ id: 'grouped', posicao: 2, inicio: '08:20', disciplina: 'Programação', professor: 'Ana', sala: 'A1' }];
     const next = replacePeriodWithSplit(periods, 'grouped', [
-      { posicao: 2, inicio: '08:20', fim: '09:10' },
-      { posicao: 3, inicio: '09:10', fim: '10:10' },
-      { posicao: 4, inicio: '10:10', fim: '11:00' },
-      { posicao: 5, inicio: '11:00', fim: '11:45' },
+      { posicao: 2, inicio: '08:20' },
+      { posicao: 3, inicio: '09:10' },
+      { posicao: 4, inicio: '10:10' },
+      { posicao: 5, inicio: '11:00' },
     ]);
     expect(next).toHaveLength(4);
     expect(next.map((period) => period.posicao)).toEqual([2, 3, 4, 5]);

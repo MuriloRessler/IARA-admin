@@ -15,12 +15,7 @@ export const validatePeriod = (period, index) => {
   const errors = [];
   const isDocumentEmpty = period.estado === 'vazio_documento';
   if (!isValidTime(period.inicio)) errors.push(`Período ${index + 1}: informe um início válido (HH:MM).`);
-  if (period.fim && !isValidTime(period.fim)) errors.push(`Período ${index + 1}: informe um término válido (HH:MM).`);
   if (period.inicioPendente) errors.push(`Período ${index + 1}: o início precisa ser conferido.`);
-  if (period.fimPendente) errors.push(`Período ${index + 1}: o término precisa ser conferido.`);
-  if (period.fim && isValidTime(period.inicio) && timeToMinutes(period.fim) <= timeToMinutes(period.inicio)) {
-    errors.push(`Período ${index + 1}: o término deve ser posterior ao início.`);
-  }
   if (!isDocumentEmpty && !period.disciplina?.trim()) errors.push(`Período ${index + 1}: informe a disciplina.`);
   return errors;
 };
@@ -28,15 +23,12 @@ export const validatePeriod = (period, index) => {
 const validatePeriods = (periods) => {
   const errors = periods.flatMap((period, index) => validatePeriod(period, index));
   const ordered = periods
-    .map((period, index) => ({ period, index, start: timeToMinutes(period.inicio), end: timeToMinutes(period.fim) || timeToMinutes(period.inicio) }))
+    .map((period, index) => ({ period, index, start: timeToMinutes(period.inicio) }))
     .filter(({ start }) => start !== null)
     .sort((left, right) => left.start - right.start);
 
   ordered.forEach((current, index) => {
     const previous = ordered[index - 1];
-    if (previous && current.start < previous.end) {
-      errors.push(`Períodos ${previous.index + 1} e ${current.index + 1}: há sobreposição de horários.`);
-    }
     if (previous && current.start === previous.start) {
       errors.push(`Períodos ${previous.index + 1} e ${current.index + 1}: há horários duplicados.`);
     }

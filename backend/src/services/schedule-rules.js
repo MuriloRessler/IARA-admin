@@ -28,6 +28,4 @@ export const detectScheduleProfile = ({ courseName, pageCount, extracted }) => {
   return profile || null;
 };
 
-export const getTerminalEnd = (profile, position) => profile?.terminalEnds?.[position] || null;
-
 export const getPositionStart = (profile, position) => profile?.starts?.[position - 1] || null;

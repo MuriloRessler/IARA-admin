@@ -20,7 +20,7 @@ const extracted = {
     curso: 'Informática',
     turmaAssociacao: { regiao: 'left', confianca: 'confiavel' },
     avisos: [],
-    segunda: { situacaoDocumento: 'com_aulas', avisos: [], posicoes: [{ posicao: 1, posicoesAssociadas: [], estado: 'reconhecido', inicio: '07:30', fim: '08:20', disciplina: 'Matemática', professor: null, sala: null, pagina: 1, incertezas: [] }] },
+    segunda: { situacaoDocumento: 'com_aulas', avisos: [], posicoes: [{ posicao: 1, posicoesAssociadas: [], estado: 'reconhecido', inicio: '07:30', disciplina: 'Matemática', professor: null, sala: null, pagina: 1, incertezas: [] }] },
     terca: { situacaoDocumento: 'dia_em_branco', avisos: [], posicoes: [] },
     quarta: { situacaoDocumento: 'nao_reconhecido', avisos: ['Tabela cortada.'], posicoes: [] },
     quinta: { situacaoDocumento: 'com_aulas', avisos: [], posicoes: [] },
@@ -66,10 +66,10 @@ test('POST /api/schedules/extract rejects invalid PDF signatures', async () => {
   assert.equal(response.body.error.code, 'PDF_SIGNATURE_INVALID');
 });
 
-test('POST /api/schedules/extract returns 503 when OpenAI is not configured', async () => {
+test('POST /api/schedules/extract uses the local extractor by default', async () => {
   const pdf = await createPdf();
   const response = await request(createApp({
-    config: { ...config, openaiApiKey: '' },
+    config: { ...config, openaiApiKey: '', extractionEngine: 'local' },
     supabaseClient: { auth: { getUser: async () => ({ data: { user: { id: 'admin-user-id' } }, error: null }) } },
   }))
     .post('/api/schedules/extract')
@@ -77,6 +77,20 @@ test('POST /api/schedules/extract returns 503 when OpenAI is not configured', as
     .field('course', 'Informática')
     .attach('file', pdf, { filename: 'horarios.pdf', contentType: 'application/pdf' });
 
-  assert.equal(response.statusCode, 503);
-  assert.equal(response.body.error.code, 'EXTRACTION_NOT_CONFIGURED');
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.diagnosticoEstrutural.motor, 'local-structure-ocr');
+});
+
+test('POST /api/schedules/cell-preview returns a temporary cell image', async () => {
+  const pdf = await createPdf();
+  const response = await request(createExtractionApp({ extract: async () => extracted }))
+    .post('/api/schedules/cell-preview')
+    .set('Authorization', 'Bearer valid-token')
+    .field('page', '1')
+    .field('bbox', JSON.stringify({ left: 0, top: 0, width: 100, height: 100 }))
+    .attach('file', pdf, { filename: 'horarios.pdf', contentType: 'application/pdf' });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['content-type'].startsWith('image/png'), true);
+  assert.ok(response.body.length > 0);
 });

@@ -8,14 +8,13 @@ const positionSchema = {
     posicoesAssociadas: { type: 'array', items: { type: 'integer' } },
     estado: { type: 'string', enum: ['reconhecido', 'vazio_documento', 'nao_reconhecido', 'parcial'] },
     inicio: nullableString,
-    fim: nullableString,
     disciplina: nullableString,
     professor: nullableString,
     sala: nullableString,
     pagina: { type: ['integer', 'null'] },
     incertezas: { type: 'array', items: { type: 'string' } },
   },
-  required: ['posicao', 'posicoesAssociadas', 'estado', 'inicio', 'fim', 'disciplina', 'professor', 'sala', 'pagina', 'incertezas'],
+  required: ['posicao', 'posicoesAssociadas', 'estado', 'inicio', 'disciplina', 'professor', 'sala', 'pagina', 'incertezas'],
 };
 
 const daySchema = {

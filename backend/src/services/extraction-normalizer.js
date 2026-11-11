@@ -1,6 +1,6 @@
 import { getCourse } from '../config/courses.js';
 import { auditDayPositions, summarizeExtractionAudit } from './extraction-audit.js';
-import { detectScheduleProfile, getPositionStart, getTerminalEnd } from './schedule-rules.js';
+import { detectScheduleProfile, getPositionStart } from './schedule-rules.js';
 
 const DAYS = ['segunda', 'terca', 'quarta', 'quinta', 'sexta'];
 const DAY_LABELS = { segunda: 'Segunda-feira', terca: 'Terça-feira', quarta: 'Quarta-feira', quinta: 'Quinta-feira', sexta: 'Sexta-feira' };
@@ -45,7 +45,7 @@ const expandAssociatedPositions = (rawPositions, profile) => rawPositions.flatMa
     ...rawPosition,
     posicao: position,
     inicio: getPositionStart(profile, position) || rawPosition.inicio,
-    fim: getTerminalEnd(profile, position) || profile.starts?.[position] || '',
+    inicioOrigem: 'perfil_confirmado',
     posicoesAssociadas: [position],
     origemNormalizacao: 'divisao_estrutural',
   }));
@@ -59,8 +59,7 @@ const hasPotentialGroupedInterval = (rawPosition, profile) => {
   if (!profile) return duration >= 100;
   const startIndex = profile.starts.indexOf(rawPosition.inicio);
   const endIndex = profile.starts.indexOf(rawPosition.fim);
-  const terminalIndex = Object.entries(profile.terminalEnds || {}).find(([, end]) => end === rawPosition.fim)?.[0];
-  const effectiveEndIndex = endIndex >= 0 ? endIndex : terminalIndex ? Number(terminalIndex) - 1 : -1;
+  const effectiveEndIndex = endIndex;
   return startIndex >= 0 && effectiveEndIndex - startIndex >= 2;
 };
 
@@ -69,31 +68,27 @@ const normalizeDay = ({ rawDay = {}, dayKey, profile, scheduleId }) => {
   const periods = expandAssociatedPositions(rawPositions, profile).map((rawPosition, index) => {
     const position = Number.isInteger(rawPosition.posicao) ? rawPosition.posicao : index + 1;
     const estado = resolveState(rawPosition);
-    const configuredStart = getPositionStart(profile, position);
-    const inicio = validTime(rawPosition.inicio) ? rawPosition.inicio : (configuredStart || '');
-    const configuredEnd = getTerminalEnd(profile, position);
-    const fim = configuredEnd || (validTime(rawPosition.fim) ? rawPosition.fim : '');
+    const inicio = validTime(rawPosition.inicio) ? rawPosition.inicio : '';
     const period = {
       id: `extracted-${scheduleId}-${dayKey}-${position}-${index}`,
       posicao: position,
       estado,
       inicio,
-      fim,
       disciplina: rawPosition.disciplina || '',
       professor: rawPosition.professor || '',
       sala: rawPosition.sala || '',
       paginaFonte: rawPosition.pagina || null,
       incertezas: rawPosition.incertezas || [],
+      bbox: rawPosition.bbox || null,
+      textoOriginal: rawPosition.textoOriginal || '',
+      inicioOrigem: rawPosition.inicioOrigem || (inicio ? 'documento' : null),
       revisao: 'nao_revisado',
       origemEdicao: rawPosition.origemNormalizacao ? 'normalizacao' : 'extracao',
       inicioPendente: estado !== 'vazio_documento' && !inicio,
-      fimPendente: estado !== 'vazio_documento' && !fim,
     };
     const messages = [];
-    if (!inicio && estado !== 'vazio_documento') messages.push('Horário de início não reconhecido.');
     if (rawPosition.inicio && !validTime(rawPosition.inicio)) messages.push('Horário de início ilegível ou inválido.');
-    if (estado !== 'vazio_documento' && !fim) messages.push('Horário de término não reconhecido; confirme no PDF.');
-    if (rawPosition.fim && !validTime(rawPosition.fim) && !configuredEnd) messages.push('Horário de término ilegível ou inválido.');
+    if (estado !== 'vazio_documento' && !inicio) messages.push('Horário de início não reconhecido; confirme a posição no documento.');
     if (estado === 'nao_reconhecido' || estado === 'parcial') messages.push('A posição foi preservada, mas exige conferência humana.');
     if (!period.disciplina && estado !== 'vazio_documento') messages.push('Disciplina não reconhecida; informe-a na conferência.');
     if (rawPosition._blockWarning) messages.push(rawPosition._blockWarning);
@@ -149,7 +144,7 @@ export const normalizeExtraction = ({ extracted, courseName, fileName, pageCount
       audit.dias[day] = normalized.audit;
     }
     if (association.confianca === 'duvidosa') schedule.dias.segunda.avisos.push(warning('A associação da região da tabela com esta turma é duvidosa; confira as colunas.'));
-    schedule.diagnostico = { perfil: profile?.course || null, paginas: pageCount, dias: audit.dias };
+    schedule.diagnostico = { perfil: profile?.course || null, paginas: pageCount, dias: audit.dias, extracao: extracted.diagnosticoEstrutural || null };
     scheduleAudits.push(audit);
     schedules[`${course.name}::${classCode}`] = schedule;
   }
@@ -174,6 +169,7 @@ export const normalizeExtraction = ({ extracted, courseName, fileName, pageCount
     unrecognizedClasses,
     warnings: [...warnings, ...scheduleAudits.flatMap((audit) => DAYS.flatMap((day) => audit.dias[day].warnings))],
     diagnostico,
+    diagnosticoEstrutural: extracted.diagnosticoEstrutural || null,
     review: 'nao_revisado',
   };
 };

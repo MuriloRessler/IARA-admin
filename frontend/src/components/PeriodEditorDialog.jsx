@@ -22,7 +22,6 @@ export function PeriodEditorDialog({ period, onSave, onCancel }) {
         <form className="modal-form" onSubmit={save}>
           <div className="modal-form__grid">
             <label>Início<input type="time" value={draft.inicio || ''} onChange={(event) => change('inicio', event.target.value)} /></label>
-            <label>Término<input type="time" value={draft.fim || ''} onChange={(event) => change('fim', event.target.value)} /></label>
             <label>Posição<input type="number" min="1" value={draft.posicao || ''} onChange={(event) => change('posicao', event.target.value ? Number(event.target.value) : null)} /></label>
             <label>Página fonte<input type="number" min="1" value={draft.paginaFonte || ''} onChange={(event) => change('paginaFonte', event.target.value ? Number(event.target.value) : null)} /></label>
           </div>

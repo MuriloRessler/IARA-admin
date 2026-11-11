@@ -8,7 +8,6 @@ const position = (posicao, disciplina = 'Química', overrides = {}) => ({
   posicoesAssociadas: [],
   estado: 'reconhecido',
   inicio: starts[posicao - 1],
-  fim: posicao === 5 ? '12:00' : posicao === 10 ? '17:20' : '08:10',
   disciplina,
   professor: 'Professor',
   sala: 'A1',
@@ -29,7 +28,7 @@ const baseClass = (positions, course = 'Informática', classCode = '61 1') => ({
   sexta: { situacaoDocumento: 'dia_em_branco', posicoes: [], avisos: [] },
 });
 
-test('normalizer applies confirmed shift endings without grouping repeated disciplines', () => {
+test('normalizer preserves independent periods without grouping repeated disciplines', () => {
   const result = normalizeExtraction({
     extracted: { paginasAnalisadas: 4, turmas: [baseClass(starts.map((_start, index) => position(index + 1)))], observacoes: [] },
     courseName: 'Informática',
@@ -39,8 +38,8 @@ test('normalizer applies confirmed shift endings without grouping repeated disci
   const periods = result.schedules['Informática::61 1'].dias.segunda.periodos;
 
   assert.equal(periods.length, 10);
-  assert.equal(periods[4].fim, '11:45');
-  assert.equal(periods[9].fim, '17:15');
+  assert.equal(periods[4].inicio, '11:00');
+  assert.equal(periods[9].inicio, '16:30');
   assert.equal(periods.filter((period) => period.disciplina === 'Química').length, 10);
   assert.equal(result.diagnostico.posicoesIdentificadas, 10);
   assert.equal(result.schedules['Informática::61 1'].dias.terca.situacao, 'pendente');
@@ -73,7 +72,7 @@ test('normalizer preserves empty and unreadable cells and audits omitted positio
 test('normalizer expands an explicitly associated visual block into independent configured positions', () => {
   const result = normalizeExtraction({
     extracted: { paginasAnalisadas: 4, turmas: [baseClass([
-      position(2, 'Programação', { posicoesAssociadas: [2, 3, 4, 5], inicio: '08:20', fim: '11:00' }),
+      position(2, 'Programação', { posicoesAssociadas: [2, 3, 4, 5], inicio: '08:20' }),
     ])], observacoes: [] },
     courseName: 'Informática',
     fileName: 'reference.pdf',
@@ -81,11 +80,11 @@ test('normalizer expands an explicitly associated visual block into independent 
   });
   const periods = result.schedules['Informática::61 1'].dias.segunda.periodos;
 
-  assert.deepEqual(periods.map((period) => [period.posicao, period.inicio, period.fim]), [
-    [2, '08:20', '09:10'],
-    [3, '09:10', '10:10'],
-    [4, '10:10', '11:00'],
-    [5, '11:00', '11:45'],
+  assert.deepEqual(periods.map((period) => [period.posicao, period.inicio]), [
+    [2, '08:20'],
+    [3, '09:10'],
+    [4, '10:10'],
+    [5, '11:00'],
   ]);
   assert.equal(new Set(periods.map((period) => period.id)).size, 4);
   assert.ok(periods.every((period) => period.disciplina === 'Programação' && period.revisao === 'nao_revisado'));
@@ -93,7 +92,7 @@ test('normalizer expands an explicitly associated visual block into independent 
 
 test('normalizer keeps an associated block pending when no schedule profile is confirmed', () => {
   const result = normalizeExtraction({
-    extracted: { paginasAnalisadas: 1, turmas: [baseClass([position(2, 'Programação', { posicoesAssociadas: [2, 3, 4, 5], inicio: '08:20', fim: '11:00' })], 'Eletrônica', '11A')], observacoes: [] },
+    extracted: { paginasAnalisadas: 1, turmas: [baseClass([position(2, 'Programação', { posicoesAssociadas: [2, 3, 4, 5], inicio: '08:20' })], 'Eletrônica', '11A')], observacoes: [] },
     courseName: 'Eletrônica',
     fileName: 'other.pdf',
     pageCount: 1,

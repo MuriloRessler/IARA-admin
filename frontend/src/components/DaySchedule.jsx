@@ -4,6 +4,7 @@ import { validateDay } from '../services/schedule-validation.js';
 import { SharedDayDialog } from './SharedDayDialog.jsx';
 import { PeriodEditorDialog } from './PeriodEditorDialog.jsx';
 import { PeriodSplitDialog } from './PeriodSplitDialog.jsx';
+import { CellPreviewDialog } from './CellPreviewDialog.jsx';
 
 const statusLabels = {
   com_aulas: 'Com aulas',
@@ -12,9 +13,10 @@ const statusLabels = {
   pendente: 'Pendente',
 };
 
-export function DaySchedule({ dayDefinition, schedule, schedules, sources, onDayChange, onPeriodChange, onEditPeriod, onSplitPeriod, onAddPeriod, onRemovePeriod, onShare, onRemoveShare, onReviewDay, onResolveWarning }) {
+export function DaySchedule({ dayDefinition, schedule, schedules, sources, file, accessToken, onDayChange, onPeriodChange, onEditPeriod, onSplitPeriod, onAddPeriod, onRemovePeriod, onShare, onRemoveShare, onReviewDay, onResolveWarning }) {
   const [editingPeriod, setEditingPeriod] = useState(null);
   const [splittingPeriod, setSplittingPeriod] = useState(null);
+  const [previewingPeriod, setPreviewingPeriod] = useState(null);
   const { key: dayKey, label } = dayDefinition;
   const day = schedule.dias[dayKey];
   const currentKey = scheduleKey(schedule.curso, schedule.turma);
@@ -64,8 +66,6 @@ export function DaySchedule({ dayDefinition, schedule, schedules, sources, onDay
               <div className="period-row__time">
                 <label htmlFor={`${period.id}-start`}>Início</label>
                 <input id={`${period.id}-start`} type="time" value={period.inicio} onChange={(event) => onPeriodChange(dayKey, period.id, 'inicio', event.target.value)} />
-                <label htmlFor={`${period.id}-end`}>Término</label>
-                <input id={`${period.id}-end`} type="time" value={period.fim} onChange={(event) => onPeriodChange(dayKey, period.id, 'fim', event.target.value)} />
               </div>
               <div className="period-row__fields">
                 <label htmlFor={`${period.id}-state`}>Leitura<select id={`${period.id}-state`} value={period.estado || 'reconhecido'} onChange={(event) => onPeriodChange(dayKey, period.id, 'estado', event.target.value)}><option value="reconhecido">Reconhecido</option><option value="vazio_documento">Célula vazia</option><option value="nao_reconhecido">Não reconhecido</option><option value="parcial">Leitura parcial</option></select></label>
@@ -74,7 +74,7 @@ export function DaySchedule({ dayDefinition, schedule, schedules, sources, onDay
                 <label htmlFor={`${period.id}-room`}>Sala<input id={`${period.id}-room`} value={period.sala} onChange={(event) => onPeriodChange(dayKey, period.id, 'sala', event.target.value)} placeholder="Opcional" /></label>
               </div>
               {(period.posicao || period.paginaFonte || period.estado !== 'reconhecido') && <small className="period-source-note">Posição {period.posicao || 'não informada'}{period.paginaFonte ? ` · página ${period.paginaFonte}` : ''} · {period.estado === 'vazio_documento' ? 'célula vazia no PDF' : period.estado === 'nao_reconhecido' ? 'conferência necessária' : period.estado === 'parcial' ? 'leitura parcial' : 'extraído'}</small>}
-              <div className="period-row__actions"><button className="icon-button icon-button--edit" type="button" onClick={() => setEditingPeriod(period)} aria-label={`Editar aula da posição ${period.posicao || index + 1}`}>✎</button><button className="secondary-button split-button" type="button" onClick={() => setSplittingPeriod(period)}>Dividir período</button><button className="icon-button" type="button" onClick={() => onRemovePeriod(dayKey, period.id)} aria-label={`Remover período ${index + 1}`}>×</button></div>
+              <div className="period-row__actions">{period.bbox && period.paginaFonte && file && <button className="secondary-button split-button" type="button" onClick={() => setPreviewingPeriod(period)}>Ver célula</button>}<button className="icon-button icon-button--edit" type="button" onClick={() => setEditingPeriod(period)} aria-label={`Editar aula da posição ${period.posicao || index + 1}`}>✎</button><button className="secondary-button split-button" type="button" onClick={() => setSplittingPeriod(period)}>Dividir período</button><button className="icon-button" type="button" onClick={() => onRemovePeriod(dayKey, period.id)} aria-label={`Remover período ${index + 1}`}>×</button></div>
             </div>
           ))}
           {day.periodos.length === 0 && <p className="period-empty">Nenhum período registrado. Um dia vazio continuará pendente até ser confirmado.</p>}
@@ -93,6 +93,7 @@ export function DaySchedule({ dayDefinition, schedule, schedules, sources, onDay
       {periodIds.size === 0 && day.situacao === 'com_aulas' && <span className="visually-hidden">Dia sem períodos</span>}
       {editingPeriod && <PeriodEditorDialog period={editingPeriod} onCancel={() => setEditingPeriod(null)} onSave={(changes) => { const result = onEditPeriod(dayKey, editingPeriod.id, changes); if (!result?.error) setEditingPeriod(null); return result; }} />}
       {splittingPeriod && <PeriodSplitDialog period={splittingPeriod} courseName={schedule.curso} onCancel={() => setSplittingPeriod(null)} onConfirm={(slots) => { const result = onSplitPeriod(dayKey, splittingPeriod.id, slots); if (!result?.error) setSplittingPeriod(null); return result; }} />}
+      {previewingPeriod && <CellPreviewDialog period={previewingPeriod} file={file} accessToken={accessToken} onCancel={() => setPreviewingPeriod(null)} />}
     </article>
   );
 }

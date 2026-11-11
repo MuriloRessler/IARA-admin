@@ -23,7 +23,6 @@ export const createPeriod = () => ({
   posicao: null,
   estado: 'reconhecido',
   inicio: '',
-  fim: '',
   disciplina: '',
   professor: '',
   sala: '',

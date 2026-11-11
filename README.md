@@ -139,7 +139,7 @@ Os rascunhos permanecem locais. Nenhum botão desta etapa salva ou publica dados
   dias: {
     segunda: {
       situacao: 'com_aulas',
-      periodos: [{ inicio: '07:30', fim: '', disciplina: '', professor: '', sala: '' }],
+      periodos: [{ inicio: '07:30', disciplina: '', professor: '', sala: '' }],
       compartilhamento: null,
     },
   },
@@ -157,7 +157,7 @@ O relatório indica correção automática por uma atualização major para Vite
 Não foram realizadas alterações remotas no Supabase, no chatbot n8n ou em ambientes de produção.
 ## Etapa 4 — extração automática assistida
 
-Após selecionar o curso e um PDF, o administrador pode solicitar **Extrair horários automaticamente**. O backend valida assinatura, extensão, MIME, tamanho de até 20 MB e até 30 páginas antes de enviar o documento em base64, diretamente em memória, para o Responses API. O request usa `store: false`, `detail: high` e Structured Outputs com JSON Schema estrito. O modelo padrão é `gpt-4.1-mini`, mas pode ser substituído por `OPENAI_MODEL`.
+Após selecionar o curso e um PDF, o administrador pode solicitar **Processar PDF**. O backend valida assinatura, extensão, MIME, tamanho de até 20 MB e até 30 páginas, analisa a estrutura visual localmente, recorta células e executa OCR por célula. O fluxo padrão não envia o documento para a OpenAI.
 
 O resultado é convertido para o mesmo modelo da grade manual. Turmas não reconhecidas não são atribuídas automaticamente; dias em branco continuam pendentes; campos ausentes e incertezas geram avisos. O administrador escolhe as turmas a importar e cada grade extraída inicia como `nao_revisado`. Edições invalidam a revisão, avisos precisam ser conferidos e a prévia final continua bloqueada enquanto houver pendências.
 
@@ -166,14 +166,16 @@ O resultado é convertido para o mesmo modelo da grade manual. Turmas não recon
 Preencha `backend/.env` somente no ambiente local ou de deploy:
 
 ```env
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4.1-mini
+EXTRACTION_ENGINE=local
 PDF_MAX_SIZE_MB=20
 PDF_MAX_PAGES=30
 EXTRACTION_TIMEOUT_MS=120000
+PDF_RENDER_SCALE=1.5
+OCR_LANGUAGES=por+eng
+OCR_CACHE_PATH=
 ```
 
-`OPENAI_API_KEY` nunca deve ser colocado em `frontend/.env`, em variáveis `VITE_*`, no navegador ou em commits. Sem essa chave, o endpoint responde `503` de forma explícita; não há simulação de extração.
+`EXTRACTION_ENGINE=local` é obrigatório para o novo fluxo. O provider OpenAI permanece somente como compatibilidade opt-in quando `EXTRACTION_ENGINE=openai` for configurado conscientemente no backend; ele não é chamado automaticamente.
 
 O endpoint `POST /api/schedules/extract` exige o mesmo Bearer token administrativo de `/api/auth/me`, recebe `course` e o arquivo multipart no campo `file`, e retorna apenas dados provisórios para conferência. Não há upload persistente, migração Supabase, alteração da tabela `horarios` ou integração n8n nesta etapa.
 
@@ -193,17 +195,31 @@ A extração agora representa cada linha da tabela como uma posição individual
 
 ### Regras de horário
 
-As regras confirmadas ficam centralizadas em `shared/schedule-rules.js` e são consumidas pelo backend e frontend. O perfil de referência do PDF de Informática reconhece, quando a estrutura é detectada, as dez posições `07:30`, `08:20`, `09:10`, `10:10`, `11:00`, `13:00`, `13:50`, `14:40`, `15:40` e `16:30`. Os términos confirmados das posições finais são `11:45` e `17:15`. Esses valores não são aplicados a documentos com outra estrutura.
+As regras de início ficam centralizadas em `shared/schedule-rules.js` e são consumidas pelo backend e frontend. O perfil de referência do PDF de Informática reconhece, quando a estrutura é detectada, as dez posições `07:30`, `08:20`, `09:10`, `10:10`, `11:00`, `13:00`, `13:50`, `14:40`, `15:40` e `16:30`. Esses valores não são aplicados a documentos com outra estrutura.
 
-Para os demais períodos, o término precisa vir explicitamente do documento. Se não houver informação suficiente, o campo fica pendente e a revisão é bloqueada. Intervalos entre inícios não são convertidos automaticamente em duração de aula.
+O modelo não possui horário de término. Quando o início não é reconhecido, a célula permanece no editor com pendência; nenhum horário é inventado a partir de duração ou do início seguinte.
 
 ### Estados e auditoria
 
 Cada posição pode ser `reconhecido`, `vazio_documento`, `nao_reconhecido` ou `parcial`. Uma disciplina ilegível não elimina a linha: ela permanece editável, com horário, posição, página e aviso quando disponíveis. A interface permite corrigir a leitura e marcar uma célula como vazia somente após conferência.
 
-Depois da resposta da IA, o backend compara posições retornadas, esperadas, vazias, preenchidas, ilegíveis, duplicadas, fora de ordem e possivelmente omitidas. O resumo aparece na importação e também é mantido no diagnóstico da turma. Avisos de cobertura não são resolvidos copiando dados de outra turma.
+Depois da extração local, o backend compara posições retornadas, esperadas, vazias, preenchidas, ilegíveis, duplicadas, fora de ordem e possivelmente omitidas. O resumo aparece na importação e também é mantido no diagnóstico da turma. Avisos de cobertura não são resolvidos copiando dados de outra turma.
 
 O PDF real `Horário Info 14.09.26 (1).pdf` não está disponível neste workspace. A validação realizada usa fixtures sintéticas e não representa uma aprovação da extração real. Quando o arquivo for disponibilizado, execute o teste controlado comparando as sete turmas, quatro páginas, dez posições por dia, dias parcialmente vazios e anotações manuscritas.
+
+## Etapa 4.3 — processamento local por estrutura e OCR
+
+O processamento padrão deixou de usar a API multimodal. O backend usa `pdfjs-dist` e `@napi-rs/canvas` para inspecionar e renderizar cada página, `sharp` para análise de pixels, pré-processamento e recorte das células, e `tesseract.js` para OCR reutilizável em português e inglês. O OCR é executado por célula, não sobre uma página inteira seguida de reconstrução textual.
+
+O detector procura cabeçalhos de turmas do catálogo, limites relativos da região, rótulos de dias, horários de início, linhas horizontais e separações verticais. Cada célula recebe página, posição, início, estado de leitura, texto original e caixa de origem. Quando a geometria não é confiável, a célula não é descartada: o diagnóstico registra a pendência e a turma permanece para conferência.
+
+O painel de calibração permite ajustar os limites horizontais das regiões detectadas e reenviar o mesmo PDF com essa calibração, sem modificar ou armazenar o documento. As coordenadas são relativas às dimensões da página. A visualização **Ver célula** envia o PDF novamente a uma rota administrativa temporária, retorna somente o recorte solicitado em memória e não persiste arquivos.
+
+Os dados de período agora contêm somente horário de início. O editor, a divisão manual, as validações, a prévia textual e os rascunhos não calculam nem exigem término. Rascunhos versão 1 que contenham `fim` são aceitos, têm esse campo removido na migração para a versão 2 e preservam os demais dados. Períodos repetidos continuam sendo linhas independentes.
+
+O provider OpenAI anterior permanece no código apenas para compatibilidade explícita. A rota seleciona o extrator local por padrão (`EXTRACTION_ENGINE=local`) e só usa OpenAI quando esse valor é alterado manualmente no backend. Não há chamada externa no fluxo padrão.
+
+O PDF real `Horário Info 14.09.26 (1).pdf` não está disponível neste workspace. Portanto, não foi declarada validação das sete turmas, das 350 posições ou da turma 63 2. Os testes atuais usam PDFs sintéticos, mocks de OCR e fixtures estruturais; a precisão real do OCR ainda precisa ser comparada com um gabarito humano quando o arquivo for disponibilizado.
 
 ## Etapa 4.2 — períodos independentes e conferência célula a célula
 

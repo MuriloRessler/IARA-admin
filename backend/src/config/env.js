@@ -17,4 +17,8 @@ export const env = {
   pdfMaxSizeMb: Number(process.env.PDF_MAX_SIZE_MB) || 20,
   pdfMaxPages: Number(process.env.PDF_MAX_PAGES) || 30,
   extractionTimeoutMs: Number(process.env.EXTRACTION_TIMEOUT_MS) || 120000,
+  extractionEngine: process.env.EXTRACTION_ENGINE || 'local',
+  pdfRenderScale: Number(process.env.PDF_RENDER_SCALE) || 1.5,
+  ocrLanguages: process.env.OCR_LANGUAGES || 'por+eng',
+  ocrCachePath: process.env.OCR_CACHE_PATH || '',
 };

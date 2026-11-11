@@ -14,7 +14,15 @@ export const extractSchedules = ({ extractionProvider, config }) => async (reque
       maxSizeMb: config.pdfMaxSizeMb,
       maxPages: config.pdfMaxPages,
     });
-    const extracted = await extractionProvider.extract({ buffer: request.file.buffer, fileName: pdf.fileName, course, pageCount: pdf.pageCount });
+    let calibration = null;
+    if (request.body?.calibration) {
+      try { calibration = JSON.parse(request.body.calibration); } catch { throw new ExtractionError('CALIBRATION_INVALID', 'A calibração enviada não é válida.', 400); }
+    }
+    const extractionPromise = extractionProvider.extract({ buffer: request.file.buffer, fileName: pdf.fileName, course, pageCount: pdf.pageCount, calibration });
+    let timer;
+    const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new ExtractionError('EXTRACTION_TIMEOUT', 'O processamento excedeu o tempo limite.', 504)), config.extractionTimeoutMs); });
+    let extracted;
+    try { extracted = await Promise.race([extractionPromise, timeout]); } finally { clearTimeout(timer); }
     response.json(normalizeExtraction({ extracted, courseName: course.name, fileName: pdf.fileName, pageCount: pdf.pageCount }));
   } catch (error) {
     next(error);

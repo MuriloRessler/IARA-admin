@@ -1,7 +1,8 @@
 import { courses } from '../config/courses.js';
 import { DAYS, DAY_STATUSES, scheduleKey } from './schedule-model.js';
 
-export const DRAFT_VERSION = 1;
+export const DRAFT_VERSION = 2;
+export const LEGACY_DRAFT_VERSION = 1;
 
 const isKnownClass = (courseName, classCode) => courses.some(
   (course) => course.name === courseName && course.classes.includes(classCode),
@@ -9,23 +10,35 @@ const isKnownClass = (courseName, classCode) => courses.some(
 
 const isPlainObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
 
+const stripLegacyEnd = (period) => {
+  const { fim: _legacyEnd, fimPendente: _legacyEndPending, ...current } = period;
+  return current;
+};
+
+const normalizeSchedule = (schedule) => ({
+  ...schedule,
+  dias: Object.fromEntries(Object.entries(schedule.dias).map(([dayKey, day]) => [dayKey, {
+    ...day,
+    periodos: day.periodos.map(stripLegacyEnd),
+  }])),
+});
+
 export const createDraftPayload = (schedules) => ({
   version: DRAFT_VERSION,
   exportedAt: new Date().toISOString(),
-  schedules,
+  schedules: Object.fromEntries(Object.entries(schedules).map(([key, schedule]) => [key, normalizeSchedule(schedule)])),
 });
 
 export const serializeDraft = (schedules) => JSON.stringify(createDraftPayload(schedules), null, 2);
 
 const validatePeriodData = (period) => isPlainObject(period)
   && typeof period.inicio === 'string'
-  && typeof period.fim === 'string'
   && typeof period.disciplina === 'string'
   && typeof period.professor === 'string'
   && typeof period.sala === 'string';
 
 export const validateDraftPayload = (payload) => {
-  if (!isPlainObject(payload) || payload.version !== DRAFT_VERSION || !isPlainObject(payload.schedules)) {
+  if (!isPlainObject(payload) || ![LEGACY_DRAFT_VERSION, DRAFT_VERSION].includes(payload.version) || !isPlainObject(payload.schedules)) {
     throw new Error('Formato de rascunho inválido ou versão não suportada.');
   }
 
@@ -53,7 +66,9 @@ export const validateDraftPayload = (payload) => {
       }
     });
   });
-  return payload;
+  return payload.version === LEGACY_DRAFT_VERSION
+    ? { ...payload, version: DRAFT_VERSION, schedules: Object.fromEntries(Object.entries(payload.schedules).map(([key, schedule]) => [key, normalizeSchedule(schedule)])) }
+    : payload;
 };
 
 export const parseDraft = (text) => {

@@ -63,7 +63,7 @@ export function AdminApplication({ admin, accessToken, onLogout }) {
   const changePeriod = (dayKey, periodId, field, value) => updateSchedule((current) => ({
     ...current,
     revisao: 'nao_revisado',
-    dias: { ...current.dias, [dayKey]: { ...current.dias[dayKey], situacao: 'com_aulas', compartilhamento: null, revisao: 'nao_revisado', periodos: current.dias[dayKey].periodos.map((period) => period.id === periodId ? updatePeriodRecord(period, { [field]: value, ...(field === 'inicio' ? { inicioPendente: false } : {}), ...(field === 'fim' ? { fimPendente: false } : {}) }) : period) } },
+    dias: { ...current.dias, [dayKey]: { ...current.dias[dayKey], situacao: 'com_aulas', compartilhamento: null, revisao: 'nao_revisado', periodos: current.dias[dayKey].periodos.map((period) => period.id === periodId ? updatePeriodRecord(period, { [field]: value, ...(field === 'inicio' ? { inicioPendente: false } : {}) }) : period) } },
   }));
 
   const editPeriod = (dayKey, periodId, changes) => {
@@ -73,7 +73,7 @@ export function AdminApplication({ admin, accessToken, onLogout }) {
       const currentDay = current[key].dias[dayKey];
       const period = currentDay.periodos.find((candidate) => candidate.id === periodId);
       if (!period) { result = { error: 'Período não encontrado.' }; return current; }
-      const nextPeriod = updatePeriodRecord(period, { ...changes, ...(Object.prototype.hasOwnProperty.call(changes, 'inicio') ? { inicioPendente: false } : {}), ...(Object.prototype.hasOwnProperty.call(changes, 'fim') ? { fimPendente: false } : {}) });
+      const nextPeriod = updatePeriodRecord(period, { ...changes, ...(Object.prototype.hasOwnProperty.call(changes, 'inicio') ? { inicioPendente: false } : {}) });
       const nextDay = { ...currentDay, situacao: 'com_aulas', compartilhamento: null, revisao: 'nao_revisado', periodos: currentDay.periodos.map((candidate) => candidate.id === periodId ? nextPeriod : candidate) };
       const errors = validateDay(nextDay, current, key, dayKey).filter((message) => !(nextPeriod.estado !== 'vazio_documento' && ['nao_reconhecido', 'parcial'].includes(nextPeriod.estado) && message.includes('informe a disciplina')));
       if (errors.length) { result = { error: errors[0] }; return current; }
@@ -159,7 +159,7 @@ export function AdminApplication({ admin, accessToken, onLogout }) {
     ? <Dashboard totalClasses={totalClasses} onNavigate={setActiveView} />
     : activeView === 'import'
       ? <ImportPage courses={courses} selectedCourse={selectedCourse} accessToken={accessToken} onCourseChange={changeCourse} file={selectedFile} onFileChange={setSelectedFile} onRemoveFile={() => setSelectedFile(null)} onContinue={() => setActiveView('review')} onImportExtracted={importExtractedSchedules} />
-      : <ScheduleReviewPage courses={courses} classes={selectedCourseData.classes} selectedCourse={selectedCourse} selectedClass={selectedClass} onCourseChange={changeCourse} onClassChange={setSelectedClass} schedule={schedule} schedules={schedules} sources={sources} file={selectedFile} validation={validation} onDayChange={changeDay} onPeriodChange={changePeriod} onEditPeriod={editPeriod} onSplitPeriod={splitPeriod} onAddPeriod={addPeriod} onRemovePeriod={removePeriod} onShare={shareDay} onRemoveShare={removeShare} onReviewDay={reviewDay} onResolveWarning={resolveWarning} onImportDraft={importDraft} onExported={() => setHasChanges(false)} onImported={() => setHasChanges(true)} hasChanges={hasChanges} />;
+      : <ScheduleReviewPage courses={courses} classes={selectedCourseData.classes} selectedCourse={selectedCourse} selectedClass={selectedClass} onCourseChange={changeCourse} onClassChange={setSelectedClass} schedule={schedule} schedules={schedules} sources={sources} file={selectedFile} accessToken={accessToken} validation={validation} onDayChange={changeDay} onPeriodChange={changePeriod} onEditPeriod={editPeriod} onSplitPeriod={splitPeriod} onAddPeriod={addPeriod} onRemovePeriod={removePeriod} onShare={shareDay} onRemoveShare={removeShare} onReviewDay={reviewDay} onResolveWarning={resolveWarning} onImportDraft={importDraft} onExported={() => setHasChanges(false)} onImported={() => setHasChanges(true)} hasChanges={hasChanges} />;
 
   return <AdminLayout admin={admin} activeView={activeView} onNavigate={setActiveView} onLogout={onLogout}>{content}</AdminLayout>;
 }

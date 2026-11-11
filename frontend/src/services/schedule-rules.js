@@ -8,7 +8,7 @@ const getProfile = (courseName) => Object.values(SCHOOL_SCHEDULE_RULES.reference
 export const getReferenceSlots = (courseName) => {
   const profile = getProfile(courseName);
   if (!profile) return [];
-  return profile.starts.map((inicio, index) => ({ posicao: index + 1, inicio, fim: profile.terminalEnds[index + 1] || profile.starts[index + 1] || '' }));
+  return profile.starts.map((inicio, index) => ({ posicao: index + 1, inicio }));
 };
 
 export const getSplitCandidates = (period, courseName) => {

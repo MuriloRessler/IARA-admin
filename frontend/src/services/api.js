@@ -26,10 +26,11 @@ export const getCurrentAdmin = async (accessToken) => {
   return response.json();
 };
 
-export const extractSchedules = async (file, course, accessToken) => {
+export const extractSchedules = async (file, course, accessToken, calibration = null) => {
   const body = new FormData();
   body.append('file', file);
   body.append('course', course);
+  if (calibration) body.append('calibration', JSON.stringify(calibration));
   const response = await fetch(`${apiBaseUrl}/schedules/extract`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -43,4 +44,17 @@ export const extractSchedules = async (file, course, accessToken) => {
     throw error;
   }
   return payload;
+};
+
+export const getCellPreview = async (file, page, bbox, accessToken) => {
+  const body = new FormData();
+  body.append('file', file);
+  body.append('page', String(page));
+  body.append('bbox', JSON.stringify(bbox));
+  const response = await fetch(`${apiBaseUrl}/schedules/cell-preview`, { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }, body });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error?.message || `Cell preview failed with HTTP ${response.status}`);
+  }
+  return URL.createObjectURL(await response.blob());
 };
