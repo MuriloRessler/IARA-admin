@@ -7,7 +7,9 @@ export const notFoundHandler = (request, response) => {
 
 export const errorHandler = (error, _request, response, _next) => {
   if (error.statusCode && error.expose) {
-    response.status(error.statusCode).json({ error: { code: error.code, message: error.message } });
+    const payload = { code: error.code, message: error.message };
+    if (error.details && !Object.hasOwn(error.details, 'cause')) payload.details = error.details;
+    response.status(error.statusCode).json({ error: payload });
     return;
   }
   if (error.code === 'LIMIT_FILE_SIZE') {

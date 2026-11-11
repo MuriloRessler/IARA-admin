@@ -1,0 +1,153 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import request from 'supertest';
+import { createApp } from '../src/app.js';
+import { courses, totalClasses } from '../src/config/courses.js';
+import { comparePublicationRecords, formatPublicationText, recordsChecksum, validatePublicationSchedules } from '../src/services/publication.js';
+import { createPublicationRepository } from '../src/services/publication-repository.js';
+
+const dayKeys = ['segunda', 'terca', 'quarta', 'quinta', 'sexta'];
+
+const emptyDay = () => ({ situacao: 'sem_aulas', periodos: [], compartilhamento: null, revisao: 'revisado', avisos: [] });
+
+const emptySchedule = (curso, turma) => ({
+  curso,
+  turma,
+  revisao: 'revisado',
+  dias: Object.fromEntries(dayKeys.map((key) => [key, emptyDay()])),
+});
+
+const completeSchedules = () => Object.fromEntries(courses.flatMap((course) => course.classes.map((turma) => {
+  const schedule = emptySchedule(course.name, turma);
+  if (turma === '61 1') schedule.dias.segunda = {
+    situacao: 'com_aulas',
+    periodos: [{ id: 'period-1', posicao: 1, inicio: '07:30', estado: 'reconhecido', disciplina: 'Matemática', professor: 'Ana', sala: 'B1', revisao: 'revisado' }],
+    compartilhamento: null,
+    revisao: 'revisado',
+    avisos: [],
+  };
+  return [`${course.name}::${turma}`, schedule];
+})));
+
+test('publication validation covers all official classes and produces final text without sharing metadata', () => {
+  const schedules = completeSchedules();
+  const result = validatePublicationSchedules(schedules);
+  assert.equal(totalClasses, 49);
+  assert.equal(result.valid, true);
+  assert.equal(result.records.length, 49);
+  assert.match(result.records.find((record) => record.turma === '61 1').horario, /07:30 - Matemática \| Professor: Ana \| Sala: B1/);
+  assert.doesNotMatch(result.records.find((record) => record.turma === '61 1').horario, /origemCompartilhamento|compartilhamentoStatus/);
+});
+
+test('publication validation rejects missing classes, invalid courses, duplicate periods and end times', () => {
+  const schedules = completeSchedules();
+  delete schedules['Informática::61 3'];
+  schedules['Informática::61 1'].curso = 'Curso inválido';
+  schedules['Informática::61 2'].dias.segunda = {
+    situacao: 'com_aulas',
+    periodos: [{ id: 'period-2', posicao: 1, inicio: '07:30', estado: 'reconhecido', disciplina: 'Uma', professor: '', sala: '', revisao: 'revisado' }, { id: 'period-3', posicao: 1, inicio: '07:30', estado: 'reconhecido', disciplina: 'Outra', professor: '', sala: '', fim: '08:20', revisao: 'revisado' }],
+    compartilhamento: null,
+    revisao: 'revisado',
+    avisos: [],
+  };
+  const result = validatePublicationSchedules(schedules);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((item) => item.code === 'MISSING_CLASS'));
+  assert.ok(result.issues.some((item) => item.code === 'UNKNOWN_OR_MISMATCHED_CLASS'));
+  assert.ok(result.issues.some((item) => item.code === 'DUPLICATE_PERIOD'));
+  assert.ok(result.issues.some((item) => item.code === 'END_TIME_NOT_ALLOWED'));
+});
+
+test('publication comparison preserves ids and keeps legacy records outside the publication set', () => {
+  const next = [{ turma: '61 1', curso: 'Informática', horario: 'new' }, { turma: '61 2', curso: 'Informática', horario: 'same' }];
+  const current = [{ id: 10, turma: '61 1', curso: 'Informática', horario: 'old' }, { id: 11, turma: '61 2', curso: 'Informática', horario: 'same' }, { id: 12, turma: null, curso: 'Informática', horario: 'legacy-url' }];
+  const result = comparePublicationRecords(next, current);
+  assert.equal(result.updated[0].id, 10);
+  assert.equal(result.unchanged[0].id, 11);
+  assert.equal(result.legacyRecords.length, 1);
+});
+
+test('publication routes preview, backup and publish with administrative authorization and no duplicate rows', async () => {
+  let records = [{ id: 10, turma: '61 1', curso: 'Informática', horario: 'old' }, { id: 11, turma: null, curso: 'Informática', horario: 'legacy-url' }];
+  let nextId = 12;
+  const repository = {
+    isConfigured: true,
+    publicationEnabled: true,
+    async readAllRecords() { return records; },
+    async readPublicationRecords() { return records.map(({ id, turma, curso, horario }) => ({ id, turma, curso, horario })); },
+    async upsert(nextRecords) {
+      nextRecords.forEach((next) => {
+        const index = records.findIndex((record) => record.turma === next.turma);
+        if (index >= 0) records[index] = { ...records[index], ...next };
+        else records.push({ id: nextId++, ...next });
+      });
+      return records;
+    },
+  };
+  const app = createApp({
+    config: { allowedOrigins: ['http://localhost:5173'], adminUserId: 'admin-user-id', publicationEnabled: true },
+    supabaseClient: { auth: { getUser: async () => ({ data: { user: { id: 'admin-user-id' } }, error: null }) } },
+    publicationRepository: repository,
+  });
+  const schedules = completeSchedules();
+  assert.equal((await request(app).post('/api/schedules/publication/preview').send({ schedules })).statusCode, 401);
+  const preview = await request(app).post('/api/schedules/publication/preview').set('Authorization', 'Bearer valid-token').send({ schedules });
+  assert.equal(preview.statusCode, 200);
+  assert.equal(preview.body.valid, true);
+  assert.equal(preview.body.summary.turmas, 49);
+  assert.equal(preview.body.summary.registrosCriados, 48);
+  assert.equal(preview.body.summary.registrosAtualizados, 1);
+  assert.equal(preview.body.database.legacyRecords, 1);
+
+  const backup = await request(app).get('/api/schedules/publication/backup').set('Authorization', 'Bearer valid-token');
+  assert.equal(backup.statusCode, 200);
+  assert.equal(backup.body.records.length, 2);
+  assert.equal(backup.body.recordsChecksum, recordsChecksum(records));
+
+  const missingConfirmation = await request(app).post('/api/schedules/publication/publish').set('Authorization', 'Bearer valid-token').send({ schedules, previewVersion: preview.body.publicationVersion, baseRecordsChecksum: preview.body.database.currentChecksum, backupChecksum: backup.body.recordsChecksum });
+  assert.equal(missingConfirmation.statusCode, 400);
+
+  const published = await request(app).post('/api/schedules/publication/publish').set('Authorization', 'Bearer valid-token').send({ schedules, previewVersion: preview.body.publicationVersion, baseRecordsChecksum: preview.body.database.currentChecksum, backupChecksum: backup.body.recordsChecksum, confirmPublication: true });
+  assert.equal(published.statusCode, 200);
+  assert.equal(published.body.success, true);
+  assert.equal(published.body.summary.turmas, 49);
+  assert.equal(records.filter((record) => record.turma === '61 1')[0].id, 10);
+  assert.equal(new Set(records.filter((record) => record.turma).map((record) => record.turma)).size, 49);
+
+  const secondPreview = await request(app).post('/api/schedules/publication/preview').set('Authorization', 'Bearer valid-token').send({ schedules });
+  const secondBackup = await request(app).get('/api/schedules/publication/backup').set('Authorization', 'Bearer valid-token');
+  const repeated = await request(app).post('/api/schedules/publication/publish').set('Authorization', 'Bearer valid-token').send({ schedules, previewVersion: secondPreview.body.publicationVersion, baseRecordsChecksum: secondPreview.body.database.currentChecksum, backupChecksum: secondBackup.body.recordsChecksum, confirmPublication: true });
+  assert.equal(repeated.statusCode, 200);
+  assert.equal(repeated.body.summary.registrosCriados, 0);
+  assert.equal(repeated.body.summary.registrosAtualizados, 0);
+  assert.equal(repeated.body.summary.registrosInalterados, 49);
+});
+
+test('publication formatter resolves a whole-day shared reference without emitting technical source metadata', () => {
+  const source = emptySchedule('Informática', '61 1');
+  source.dias.segunda = { situacao: 'com_aulas', periodos: [{ posicao: 1, inicio: '07:30', estado: 'reconhecido', disciplina: 'Programação', professor: 'Bia', sala: '', revisao: 'revisado' }], compartilhamento: null, revisao: 'revisado', avisos: [] };
+  const target = emptySchedule('Informática', '61 2');
+  target.dias.segunda = { situacao: 'compartilhado', periodos: [], compartilhamento: { curso: 'Informática', turma: '61 1' }, revisao: 'revisado', avisos: [] };
+  const text = formatPublicationText(target, { 'Informática::61 1': source, 'Informática::61 2': target });
+  assert.match(text, /07:30 - Programação/);
+  assert.doesNotMatch(text, /AULAS COMPARTILHADAS DE/);
+});
+
+test('publication repository reports a schema without turma and uses turma as the upsert conflict key', async () => {
+  const missingColumn = createPublicationRepository({ client: { from: () => ({ select: async () => ({ data: null, error: { message: 'column turma does not exist' } }) }) }, config: { publicationEnabled: true } });
+  await assert.rejects(() => missingColumn.readPublicationRecords(), (error) => error.code === 'PUBLICATION_SCHEMA_UNAVAILABLE');
+
+  let upsertOptions;
+  const client = {
+    from: () => ({
+      select: async () => ({ data: [], error: null }),
+      upsert: (_records, options) => {
+        upsertOptions = options;
+        return { select: async () => ({ data: [], error: null }) };
+      },
+    }),
+  };
+  const repository = createPublicationRepository({ client, config: { publicationEnabled: true } });
+  await repository.upsert([{ turma: '61 1', curso: 'Informática', horario: 'texto' }]);
+  assert.deepEqual(upsertOptions, { onConflict: 'turma', ignoreDuplicates: false });
+});

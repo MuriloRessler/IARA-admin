@@ -12,6 +12,7 @@ export const env = {
   supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || '',
   supabaseSecretKey: process.env.SUPABASE_SECRET_KEY || '',
   adminUserId: process.env.ADMIN_USER_ID || '',
+  publicationEnabled: process.env.PUBLICATION_ENABLED === 'true',
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   openaiModel: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
   pdfMaxSizeMb: Number(process.env.PDF_MAX_SIZE_MB) || 20,

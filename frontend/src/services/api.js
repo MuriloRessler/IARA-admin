@@ -94,3 +94,43 @@ export const getCellPreview = async (file, page, bbox, accessToken) => {
   }
   return URL.createObjectURL(await response.blob());
 };
+
+const publicationRequest = async (path, accessToken, options = {}) => {
+  let response;
+  try {
+    response = await fetch(`${apiBaseUrl}/schedules/publication/${path}`, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.headers || {}),
+      },
+    });
+  } catch (error) {
+    const communicationError = new Error('Não foi possível comunicar com o backend durante a operação de publicação. Verifique se o servidor está em execução.');
+    communicationError.code = 'BACKEND_UNREACHABLE';
+    communicationError.cause = error;
+    throw communicationError;
+  }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload.error?.message || `A operação de publicação falhou (HTTP ${response.status}).`);
+    error.status = response.status;
+    error.code = payload.error?.code;
+    error.details = payload.error?.details;
+    throw error;
+  }
+  return payload;
+};
+
+export const previewPublication = (schedules, accessToken) => publicationRequest('preview', accessToken, {
+  method: 'POST',
+  body: JSON.stringify({ schedules }),
+});
+
+export const getPublicationBackup = (accessToken) => publicationRequest('backup', accessToken);
+
+export const publishSchedules = (payload, accessToken) => publicationRequest('publish', accessToken, {
+  method: 'POST',
+  body: JSON.stringify(payload),
+});

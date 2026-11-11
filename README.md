@@ -248,3 +248,27 @@ A Etapa 4.6 mantém as aulas importadas como dados originais e reconhece automat
 As complementações são bidirecionais, idempotentes e não usam dados herdados como fonte. Elas aparecem imediatamente no editor com a origem da turma parceira, sem confirmação individual. O administrador ainda pode editar uma posição para criar uma substituição local, desfazer uma complementação específica ou restaurá-la depois, sem alterar a turma de origem. A prévia textual inclui aulas próprias, automáticas e substituições manuais, desde que a revisão geral da grade esteja concluída.
 
 Os 24 pares oficiais são derivados do catálogo compartilhado e aplicados quando as duas turmas estiverem disponíveis. Parcerias manuais não oficiais preservadas em rascunhos antigos são sinalizadas para revisão e não substituem silenciosamente a regra oficial. Sugestões, rejeições e substituições são armazenadas somente no rascunho JSON local versão 3, com compatibilidade de leitura para versões anteriores.
+
+## Etapa 5 — publicação segura no Supabase
+
+A publicação usa exclusivamente o backend protegido por `ADMIN_USER_ID`. O frontend envia as grades consolidadas do editor, mas nunca recebe nem envia `SUPABASE_SECRET_KEY`. O backend usa um cliente Supabase administrativo separado do cliente usado para validar o token do administrador.
+
+Na tela **Revisar publicação**, o administrador deve gerar a prévia das 49 grades, conferir as diferenças, baixar o backup JSON atual, consultar o texto final de cada turma e confirmar explicitamente a publicação. Os endpoints protegidos são `POST /api/schedules/publication/preview`, `GET /api/schedules/publication/backup` e `POST /api/schedules/publication/publish`.
+
+A publicação exige a confirmação explícita, o checksum do backup, o checksum do estado consultado na prévia e a mesma versão da grade. O texto publicado possui um registro por turma em `public.horarios`, com `turma`, `curso` e `horario`. Ele inclui aulas próprias, complementações automáticas e substituições manuais, mas não inclui IDs internos, estados de revisão, origem da parceria ou horário de término.
+
+Registros existentes são atualizados por `turma`, preservando o `id`; registros ausentes são criados. Registros legados sem turma e turmas fora do catálogo não são removidos. O backup inclui integralmente os registros retornados pela tabela e seu checksum é conferido novamente antes da gravação.
+
+No `.env` do backend, mantenha a chave administrativa somente no backend e deixe a publicação desabilitada até revisar a migração:
+
+```ini
+SUPABASE_URL=...
+SUPABASE_PUBLISHABLE_KEY=...
+SUPABASE_SECRET_KEY=...
+ADMIN_USER_ID=...
+PUBLICATION_ENABLED=false
+```
+
+Depois de revisar e aplicar manualmente a migração, testar a prévia e confirmar a chave UNIQUE por `turma`, altere `PUBLICATION_ENABLED=true` e reinicie o backend. O sistema não executa migrações, `db push`, `db reset` ou publicações automaticamente.
+
+O SQL preparado em `supabase/migrations/202611110001_prepare_horarios_publication.sql` adiciona `turma` de forma aditiva e prepara uma `UNIQUE CONSTRAINT` compatível com `onConflict: 'turma'`. Revise duplicidades não nulas e faça o backup antes de executar o SQL no Supabase SQL Editor. Registros antigos com `turma IS NULL` são preservados e não recebem uma turma por adivinhação. Consultas por turma e por curso estão documentadas em `supabase/README.md`.

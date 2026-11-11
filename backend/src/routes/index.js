@@ -3,6 +3,7 @@ import { createAuthRouter } from './auth.routes.js';
 import { healthRouter } from './health.routes.js';
 import { createExtractionRouter } from './extraction.routes.js';
 import { createHtmlImportRouter } from './html-import.routes.js';
+import { createPublicationRouter } from './publication.routes.js';
 
 export const createApiRouter = (options = {}) => {
   const router = Router();
@@ -10,6 +11,7 @@ export const createApiRouter = (options = {}) => {
   router.use('/auth', createAuthRouter(options));
   router.use('/schedules', createExtractionRouter(options));
   router.use('/schedules', createHtmlImportRouter(options));
+  router.use('/schedules/publication', createPublicationRouter(options));
   return router;
 };
 

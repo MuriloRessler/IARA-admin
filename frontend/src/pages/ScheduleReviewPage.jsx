@@ -6,6 +6,7 @@ import { ScheduleTextPreview } from '../components/ScheduleTextPreview.jsx';
 import { ValidationSummary } from '../components/ValidationSummary.jsx';
 import { WeeklySchedule } from '../components/WeeklySchedule.jsx';
 import { SharedPeriodsPanel } from '../components/SharedPeriodsPanel.jsx';
+import { PublicationPanel } from '../components/PublicationPanel.jsx';
 
 export function ScheduleReviewPage({
   courses, classes, selectedCourse, selectedClass, onCourseChange, onClassChange,
@@ -37,8 +38,8 @@ export function ScheduleReviewPage({
           <ScheduleTextPreview schedule={schedule} schedules={schedules} />
         </aside>
       </div>
-      <DraftControls schedules={schedules} sharing={sharing} onImport={onImportDraft} hasChanges={hasChanges} onExported={onExported} onImported={onImported} />
-      <div className="future-callout"><strong>Publicação no Supabase · Em desenvolvimento</strong><span>A prévia acima é local e não altera a tabela `horarios`.</span></div>
+      <DraftControls schedules={rawSchedules || schedules} sharing={sharing} onImport={onImportDraft} hasChanges={hasChanges} onExported={onExported} onImported={onImported} />
+      <PublicationPanel schedules={schedules} courses={courses} accessToken={accessToken} />
     </div>
   );
 }

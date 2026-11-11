@@ -17,11 +17,11 @@ export function Dashboard({ totalClasses, onNavigate }) {
           <span><strong>Conferir horários</strong><small>Edite qualquer turma e valide os dias da semana.</small></span>
           <span className="workflow-action">Abrir →</span>
         </button>
-        <div className="workflow-card workflow-card--disabled">
+        <button className="workflow-card workflow-card--active" type="button" onClick={() => onNavigate('review')}>
           <span className="workflow-number">03</span>
-          <span><strong>Publicar horários</strong><small>A publicação no Supabase estará disponível em uma próxima etapa.</small></span>
-          <span className="feature-card__badge">Em desenvolvimento</span>
-        </div>
+          <span><strong>Publicar horários</strong><small>Revise as diferenças, baixe o backup e publique após a confirmação.</small></span>
+          <span className="workflow-action">Revisar →</span>
+        </button>
       </section>
       <section className="overview-note">
         <div className="overview-note__icon">49</div>

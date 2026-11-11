@@ -17,7 +17,7 @@ export const createApp = (options = {}) => {
       callback(new Error('Origin is not allowed by CORS'));
     },
   }));
-  application.use(express.json());
+  application.use(express.json({ limit: '2mb' }));
   application.use('/api', createApiRouter(options));
   application.use(notFoundHandler);
   application.use(errorHandler);

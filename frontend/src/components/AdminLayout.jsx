@@ -47,11 +47,11 @@ export function AdminLayout({ admin, activeView, onNavigate, onLogout, children 
               {item.label}
             </button>
           ))}
-          <span className="nav-future">Publicar horários · Em breve</span>
+          <span className="nav-future">Publicar horários · Após revisão</span>
         </div>
       </nav>
       <main className="admin-content">{children}</main>
-      <footer className="app-footer">IARA-admin · Rascunhos locais nesta etapa</footer>
+      <footer className="app-footer">IARA-admin · Publicação protegida por confirmação administrativa</footer>
     </div>
   );
 }

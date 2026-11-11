@@ -12,13 +12,14 @@
 - Diferencie claramente funcionalidades implementadas de funcionalidades futuras.
 - Execute os testes relevantes e informe qualquer falha ou limitação na entrega.
 - Não declare que o login real foi validado sem uma conta Supabase configurada; use os testes com mocks para a validação automatizada.
-- A Etapa 3 mantém PDFs, grades e rascunhos somente no navegador; não crie endpoints que aparentem persistir esses dados no Supabase.
+- A Etapa 3 mantém PDFs, grades e rascunhos somente no navegador; não crie endpoints de persistência para aquele fluxo local. A publicação pertence exclusivamente à Etapa 5 e usa rotas administrativas protegidas.
 - Preserve a fonte única do catálogo em `shared/courses.js`, incluindo os códigos de turma com espaços e letras.
 - Dias vazios devem permanecer pendentes até uma decisão explícita; os pares oficiais do catálogo recebem complementação automática somente em células vazias correspondentes. Rejeições e substituições manuais devem ser preservadas e não há aprovação separada da parceria.
 - Valide compartilhamentos, ciclos, horários, sobreposições e pendências antes de gerar a prévia textual.
 - Rascunhos JSON não podem conter tokens, sessões, credenciais ou PDFs; valide a versão e a estrutura antes de importar.
 - A Etapa 4.4 usa HTML estruturado como fluxo principal por endpoint protegido, em memória, sem OCR, Tesseract.js ou OpenAI; o PDF/OCR permanece somente como fluxo secundário.
-- A extração automática é provisória: toda turma importada inicia como `nao_revisado`, avisos e dias não reconhecidos exigem conferência humana e nenhuma publicação é feita.
+- A extração automática é provisória: toda turma importada inicia como `nao_revisado`, avisos e dias não reconhecidos exigem conferência humana e nenhuma publicação automática é feita.
+- A publicação da Etapa 5 exige revisão geral, backup recuperável, prévia consistente e confirmação administrativa; nunca execute migrações remotas ou publicação real durante testes.
 - Use `OPENAI_MODEL`, `PDF_MAX_SIZE_MB`, `PDF_MAX_PAGES` e `EXTRACTION_TIMEOUT_MS` para configuração; não chame a API real em testes automatizados.
 - A Etapa 4.1 usa posições estruturais (`posicao`) para preservar linhas repetidas; nunca agrupe períodos pela disciplina, professor, sala ou proximidade.
 - Os términos confirmados de 11:45 e 17:15 pertencem ao perfil de referência de Informática e só são aplicados quando a estrutura do documento for identificada. Não derive término pelo próximo início.

@@ -296,6 +296,21 @@ button.workflow-card { cursor: pointer; font: inherit; }
 .period-row--confirmada { border-color: #7abb91; box-shadow: inset 3px 0 #3d9160; }
 .period-row--automatico { border-color: #7abb91; box-shadow: inset 3px 0 #3d9160; }
 .period-origin-note { color: var(--color-dark-soft); font-size: 0.72rem; grid-column: 1 / -1; }
+.publication-panel { display: grid; gap: 0.8rem; }
+.publication-actions, .publication-filters { align-items: end; display: flex; flex-wrap: wrap; gap: 0.55rem; }
+.publication-summary { align-items: stretch; }
+.publication-database, .publication-issues, .publication-warnings, .publication-confirmation, .publication-report, .publication-record-preview { border-radius: 0.6rem; padding: 0.8rem; }
+.publication-database--ready { background: #edf9f0; border: 1px solid #9bcbaa; color: #155e36; }
+.publication-database--blocked, .publication-issues { background: #fff1f1; border: 1px solid #e7a5a5; color: #8a2525; }
+.publication-warnings { background: #fff8e8; border: 1px solid #e7c66f; color: #755b18; }
+.publication-issues ul, .publication-warnings ul { margin: 0.45rem 0 0; padding-left: 1.15rem; }
+.publication-record-preview { background: #f7faf8; border: 1px solid var(--color-border); display: grid; gap: 0.5rem; }
+.publication-record-preview > div { display: flex; gap: 0.65rem; }
+.publication-record-preview > div span, .publication-record-preview small { color: var(--color-muted); }
+.publication-record-preview pre { background: var(--color-white); border: 1px solid var(--color-border); border-radius: 0.45rem; max-height: 20rem; overflow: auto; padding: 0.7rem; white-space: pre-wrap; }
+.publication-confirmation { background: #f0faf3; border: 2px solid var(--color-dark-soft); display: grid; gap: 0.65rem; }
+.publication-confirmation label { align-items: flex-start; display: flex; gap: 0.45rem; }
+.publication-report { background: #edf9f0; border: 1px solid #75b889; color: #155e36; display: grid; gap: 0.25rem; }
 
 @media (max-width: 650px) {
   .calibration-table, .calibration-row { grid-template-columns: 1fr 1fr; }
