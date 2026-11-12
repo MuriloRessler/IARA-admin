@@ -73,6 +73,10 @@ test('publication routes preview, backup and publish with administrative authori
   const repository = {
     isConfigured: true,
     publicationEnabled: true,
+    schemaName: 'public',
+    tableName: 'Horarios',
+    uniqueColumn: 'turma',
+    async verifyPublicationSchema() { return { columnsAccessible: true, empty: records.length === 0 }; },
     async readAllRecords() { return records; },
     async readPublicationRecords() { return records.map(({ id, turma, curso, horario }) => ({ id, turma, curso, horario })); },
     async upsert(nextRecords) {
@@ -134,13 +138,13 @@ test('publication formatter resolves a whole-day shared reference without emitti
 });
 
 test('publication repository reports a schema without turma and uses turma as the upsert conflict key', async () => {
-  const missingColumn = createPublicationRepository({ client: { from: () => ({ select: async () => ({ data: null, error: { message: 'column turma does not exist' } }) }) }, config: { publicationEnabled: true } });
-  await assert.rejects(() => missingColumn.readPublicationRecords(), (error) => error.code === 'PUBLICATION_SCHEMA_UNAVAILABLE');
+  const missingColumn = createPublicationRepository({ client: { from: () => ({ select: () => ({ limit: async () => ({ data: null, error: { code: '42703', message: 'column turma does not exist' } }) }) }) }, config: { publicationEnabled: true }, logger: { error() {} } });
+  await assert.rejects(() => missingColumn.verifyPublicationSchema(), (error) => error.code === 'PUBLICATION_COLUMN_MISSING');
 
   let upsertOptions;
   const client = {
     from: () => ({
-      select: async () => ({ data: [], error: null }),
+      select: () => ({ limit: async () => ({ data: [], error: null }), then: (resolve) => resolve({ data: [], error: null }) }),
       upsert: (_records, options) => {
         upsertOptions = options;
         return { select: async () => ({ data: [], error: null }) };
@@ -150,4 +154,57 @@ test('publication repository reports a schema without turma and uses turma as th
   const repository = createPublicationRepository({ client, config: { publicationEnabled: true } });
   await repository.upsert([{ turma: '61 1', curso: 'Informática', horario: 'texto' }]);
   assert.deepEqual(upsertOptions, { onConflict: 'turma', ignoreDuplicates: false });
+});
+
+test('publication repository uses public and the configured exact table name', async () => {
+  let schemaName;
+  let selectedTable;
+  const client = {
+    schema(schema) {
+      schemaName = schema;
+      return { from(table) { selectedTable = table; return { select: () => ({ limit: async () => ({ data: [], error: null }) }) }; } };
+    },
+  };
+  const repository = createPublicationRepository({ client, config: { publicationEnabled: true, supabaseHorariosTable: 'Horarios' } });
+  const result = await repository.verifyPublicationSchema();
+  assert.deepEqual(result, { columnsAccessible: true, empty: true });
+  assert.equal(schemaName, 'public');
+  assert.equal(selectedTable, 'Horarios');
+});
+
+test('publication repository classifies table name mismatches and missing unique constraints', async () => {
+  const mismatch = createPublicationRepository({
+    client: { from: () => ({ select: () => ({ limit: async () => ({ data: null, error: { code: 'PGRST205', message: "Could not find the table 'public.horarios' in the schema cache", hint: "Perhaps you meant the table 'public.Horarios'" } }) }) }) },
+    config: { publicationEnabled: true, supabaseHorariosTable: 'horarios' },
+    logger: { error() {} },
+  });
+  await assert.rejects(() => mismatch.verifyPublicationSchema(), (error) => error.code === 'PUBLICATION_TABLE_NAME_MISMATCH');
+
+  const uniqueMissing = createPublicationRepository({
+    client: { from: () => ({ upsert: () => ({ select: async () => ({ data: null, error: { code: '42P10', message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification' } }) }) }) },
+    config: { publicationEnabled: true },
+    logger: { error() {} },
+  });
+  await assert.rejects(() => uniqueMissing.upsert([{ turma: '61 1', curso: 'Informática', horario: 'texto' }]), (error) => error.code === 'PUBLICATION_UNIQUE_CONSTRAINT_MISSING');
+});
+
+test('publication repository separates cache, permission, credentials and network failures', async () => {
+  const cases = [
+    [{ code: 'PGRST205', message: 'Could not find the table in the schema cache' }, 'PUBLICATION_SCHEMA_CACHE_STALE'],
+    [{ code: '42501', message: 'permission denied for table Horarios' }, 'PUBLICATION_PERMISSION_DENIED'],
+    [{ status: 401, message: 'Invalid API key' }, 'PUBLICATION_CREDENTIALS_INVALID'],
+    [{ name: 'TypeError', message: 'fetch failed' }, 'PUBLICATION_CONNECTION_FAILED'],
+  ];
+  for (const [supabaseError, expectedCode] of cases) {
+    const logs = [];
+    const repository = createPublicationRepository({
+      client: { from: () => ({ select: () => ({ limit: async () => ({ data: null, error: supabaseError }) }) }) },
+      config: { publicationEnabled: true },
+      logger: { error: (...args) => logs.push(args) },
+    });
+    await assert.rejects(() => repository.verifyPublicationSchema(), (error) => error.code === expectedCode);
+    assert.equal(logs[0][0], '[Supabase] Falha na operação de publicação');
+    assert.equal(logs[0][1].operation, 'verify-publication-schema');
+    assert.equal(Object.hasOwn(logs[0][1], 'authorization'), false);
+  }
 });

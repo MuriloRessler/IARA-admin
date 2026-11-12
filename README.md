@@ -97,7 +97,7 @@ Com o Supabase configurado, acesse `http://localhost:5173`, informe as credencia
 
 O arquivo `supabase/migrations/202611090001_add_turma_to_horarios.sql` apenas prepara, de forma aditiva, a coluna `turma VARCHAR(20)` e um índice único parcial para valores não nulos. Ele preserva os registros, IDs, cursos e URLs atuais.
 
-A migração não foi executada. Antes de aplicá-la, revise a estrutura real de `public.horarios`, faça backup e execute o SQL somente mediante aprovação explícita. Não use `db push` ou `db reset` contra produção. Durante a transição, registros antigos podem manter `turma = NULL` e URLs em `horario`, enquanto registros novos terão uma grade por turma. O n8n só deverá mudar de consulta depois da validação das 49 grades.
+A migração não foi executada. Antes de aplicá-la, revise a estrutura real de `public."Horarios"`, faça backup e execute o SQL somente mediante aprovação explícita. Não use `db push` ou `db reset` contra produção. Durante a transição, registros antigos podem manter `turma = NULL` e URLs em `horario`, enquanto registros novos terão uma grade por turma. O n8n só deverá mudar de consulta depois da validação das 49 grades.
 
 ## Implementado nesta etapa
 
@@ -251,11 +251,11 @@ Os 24 pares oficiais são derivados do catálogo compartilhado e aplicados quand
 
 ## Etapa 5 — publicação segura no Supabase
 
-A publicação usa exclusivamente o backend protegido por `ADMIN_USER_ID`. O frontend envia as grades consolidadas do editor, mas nunca recebe nem envia `SUPABASE_SECRET_KEY`. O backend usa um cliente Supabase administrativo separado do cliente usado para validar o token do administrador.
+A publicação usa exclusivamente o backend protegido por `ADMIN_USER_ID`. O frontend envia as grades consolidadas do editor, mas nunca recebe nem envia `SUPABASE_SECRET_KEY`. O backend usa um cliente Supabase administrativo separado do cliente usado para validar o token do administrador. O nome exato da tabela é configurado por `SUPABASE_HORARIOS_TABLE`; no projeto conectado atualmente, ele é `Horarios` com H maiúsculo.
 
 Na tela **Revisar publicação**, o administrador deve gerar a prévia das 49 grades, conferir as diferenças, baixar o backup JSON atual, consultar o texto final de cada turma e confirmar explicitamente a publicação. Os endpoints protegidos são `POST /api/schedules/publication/preview`, `GET /api/schedules/publication/backup` e `POST /api/schedules/publication/publish`.
 
-A publicação exige a confirmação explícita, o checksum do backup, o checksum do estado consultado na prévia e a mesma versão da grade. O texto publicado possui um registro por turma em `public.horarios`, com `turma`, `curso` e `horario`. Ele inclui aulas próprias, complementações automáticas e substituições manuais, mas não inclui IDs internos, estados de revisão, origem da parceria ou horário de término.
+A publicação exige a confirmação explícita, o checksum do backup, o checksum do estado consultado na prévia e a mesma versão da grade. O texto publicado possui um registro por turma em `public."Horarios"`, com `turma`, `curso` e `horario`. Ele inclui aulas próprias, complementações automáticas e substituições manuais, mas não inclui IDs internos, estados de revisão, origem da parceria ou horário de término.
 
 Registros existentes são atualizados por `turma`, preservando o `id`; registros ausentes são criados. Registros legados sem turma e turmas fora do catálogo não são removidos. O backup inclui integralmente os registros retornados pela tabela e seu checksum é conferido novamente antes da gravação.
 
@@ -265,10 +265,11 @@ No `.env` do backend, mantenha a chave administrativa somente no backend e deixe
 SUPABASE_URL=...
 SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SECRET_KEY=...
+SUPABASE_HORARIOS_TABLE=Horarios
 ADMIN_USER_ID=...
 PUBLICATION_ENABLED=false
 ```
 
 Depois de revisar e aplicar manualmente a migração, testar a prévia e confirmar a chave UNIQUE por `turma`, altere `PUBLICATION_ENABLED=true` e reinicie o backend. O sistema não executa migrações, `db push`, `db reset` ou publicações automaticamente.
 
-O SQL preparado em `supabase/migrations/202611110001_prepare_horarios_publication.sql` adiciona `turma` de forma aditiva e prepara uma `UNIQUE CONSTRAINT` compatível com `onConflict: 'turma'`. Revise duplicidades não nulas e faça o backup antes de executar o SQL no Supabase SQL Editor. Registros antigos com `turma IS NULL` são preservados e não recebem uma turma por adivinhação. Consultas por turma e por curso estão documentadas em `supabase/README.md`.
+O SQL preparado em `supabase/migrations/202611110001_prepare_horarios_publication.sql` adiciona `turma` de forma aditiva à tabela existente `public."Horarios"` e prepara uma `UNIQUE CONSTRAINT` compatível com `onConflict: 'turma'`. Revise duplicidades não nulas e faça o backup antes de executar o SQL no Supabase SQL Editor. Registros antigos com `turma IS NULL` são preservados e não recebem uma turma por adivinhação. Consultas por turma e por curso estão documentadas em `supabase/README.md`.

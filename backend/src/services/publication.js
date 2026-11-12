@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { courses, getAllClasses, totalClasses } from '../config/courses.js';
 
-export const PUBLICATION_TABLE = 'public.horarios';
+export const PUBLICATION_TABLE = 'public."Horarios"';
 export const PUBLICATION_VERSION = 1;
 
 const DAY_ORDER = [

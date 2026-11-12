@@ -1,4 +1,13 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const configDirectory = path.dirname(fileURLToPath(import.meta.url));
+const backendEnvPath = path.resolve(configDirectory, '../../.env');
+const rootEnvPath = path.resolve(path.dirname(backendEnvPath), '..', '.env');
+
+dotenv.config({ path: backendEnvPath });
+dotenv.config({ path: rootEnvPath });
 
 const parseAllowedOrigins = (value) => value
   .split(',')
@@ -11,6 +20,7 @@ export const env = {
   supabaseUrl: process.env.SUPABASE_URL || '',
   supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || '',
   supabaseSecretKey: process.env.SUPABASE_SECRET_KEY || '',
+  supabaseHorariosTable: process.env.SUPABASE_HORARIOS_TABLE || 'Horarios',
   adminUserId: process.env.ADMIN_USER_ID || '',
   publicationEnabled: process.env.PUBLICATION_ENABLED === 'true',
   openaiApiKey: process.env.OPENAI_API_KEY || '',

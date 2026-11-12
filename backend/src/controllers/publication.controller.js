@@ -9,17 +9,28 @@ const databaseUnavailable = (repository, error = null) => ({
   available: false,
   schemaReady: false,
   publicationEnabled: Boolean(repository.publicationEnabled),
-  reason: error?.message || (repository.isConfigured ? 'A tabela horarios não pôde ser consultada.' : 'Configure SUPABASE_SECRET_KEY no backend para consultar o banco.'),
+  schema: repository.schemaName || 'public',
+  table: repository.tableName || 'Horarios',
+  columnsAccessible: false,
+  uniqueConstraint: { column: repository.uniqueColumn || 'turma', status: 'not_checked' },
+  reason: error?.message || (repository.isConfigured ? 'A tabela de horários não pôde ser consultada.' : 'Configure SUPABASE_SECRET_KEY no backend para consultar o banco.'),
   code: error?.code || 'PUBLICATION_DATABASE_UNAVAILABLE',
 });
+
+const qualifiedTableName = (repository) => `${repository.schemaName || 'public'}."${repository.tableName || 'Horarios'}"`;
 
 const readDatabase = async (repository) => {
   if (!repository.isConfigured) return databaseUnavailable(repository);
   try {
+    const schemaCheck = await repository.verifyPublicationSchema();
     const records = await repository.readPublicationRecords();
     return {
       available: true,
       schemaReady: true,
+      schema: repository.schemaName || 'public',
+      table: repository.tableName || 'Horarios',
+      columnsAccessible: schemaCheck.columnsAccessible,
+      uniqueConstraint: { column: repository.uniqueColumn || 'turma', status: 'requires_migration_or_upsert_check' },
       publicationEnabled: Boolean(repository.publicationEnabled),
       records,
       currentChecksum: recordsChecksum(records),
@@ -43,6 +54,7 @@ const buildPreview = async (schedules, repository) => {
   if (database.available && !database.publicationEnabled) databaseIssues.push({ code: 'PUBLICATION_DISABLED', path: 'backend.PUBLICATION_ENABLED', message: 'A publicação está desabilitada até a revisão da migração e do esquema.' });
   const blockingIssues = [...validation.issues, ...databaseIssues];
   const warnings = [...validation.warnings];
+  if (database.available) warnings.push({ code: 'PUBLICATION_UNIQUE_NOT_READ_VERIFIED', path: 'database.uniqueConstraint', message: 'As colunas foram verificadas por leitura. A restrição UNIQUE em turma é validada separadamente pela migração e será reportada especificamente se o upsert for rejeitado.' });
   if (changes?.legacyRecords.length) warnings.push({ code: 'LEGACY_RECORDS_WITHOUT_CLASS', path: 'database', message: `${changes.legacyRecords.length} registro(s) legado(s) não possuem turma e serão preservados.` });
   if (changes?.extraRecords.length) warnings.push({ code: 'EXTRA_DATABASE_RECORDS', path: 'database', message: `${changes.extraRecords.length} registro(s) com turma fora do catálogo não serão removidos.` });
   const summary = {
@@ -65,6 +77,10 @@ const buildPreview = async (schedules, repository) => {
       available: database.available,
       schemaReady: database.schemaReady,
       publicationEnabled: database.publicationEnabled,
+      schema: database.schema,
+      table: database.table,
+      columnsAccessible: database.columnsAccessible,
+      uniqueConstraint: database.uniqueConstraint,
       reason: database.reason || null,
       code: database.code || null,
       currentChecksum: database.currentChecksum || null,
@@ -89,7 +105,7 @@ export const createPublicationController = ({ repository }) => ({
       const payload = {
         backupVersion: 1,
         exportedAt: new Date().toISOString(),
-        table: 'public.horarios',
+        table: qualifiedTableName(repository),
         columns: ['id', 'turma', 'curso', 'horario'],
         records,
         recordsChecksum: recordsChecksum(records),

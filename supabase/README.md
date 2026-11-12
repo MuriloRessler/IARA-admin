@@ -2,11 +2,11 @@
 
 ## Estado atual
 
-Nenhuma operação remota foi executada nesta etapa. A tabela existente `public.horarios` possui `id`, `curso` e `horario`; os registros atuais podem conter URLs de PDFs utilizadas pelo chatbot n8n.
+Nenhuma operação remota foi executada nesta etapa. A tabela existente `public."Horarios"` possui `id`, `turma`, `curso` e `horario`; os registros atuais podem conter URLs de PDFs utilizadas pelo chatbot n8n.
 
 ## Migração preparada
 
-Os arquivos `migrations/202611090001_add_turma_to_horarios.sql` e `migrations/202611110001_prepare_horarios_publication.sql` preparam `turma VARCHAR(20)` de forma aditiva. O segundo cria a constraint `horarios_turma_unique`, compatível com `onConflict: 'turma'`; múltiplos registros legados com `turma IS NULL` continuam permitidos. A abordagem não remove colunas, não altera conteúdo, não apaga registros, não preenche turmas e não muda RLS, grants ou políticas.
+O arquivo `migrations/202611110001_prepare_horarios_publication.sql` prepara `turma VARCHAR(20)` de forma aditiva na tabela existente `public."Horarios"`. O segundo cria a constraint `horarios_turma_unique`, compatível com `onConflict: 'turma'`; múltiplos registros legados com `turma IS NULL` continuam permitidos. A migração anterior usa o identificador não citado `public.horarios` e não deve ser aplicada cegamente neste projeto, pois o nome real conectado é sensível a maiúsculas/minúsculas. A abordagem não remove colunas, não altera conteúdo, não apaga registros, não preenche turmas e não muda RLS, grants ou políticas.
 
 Revise o SQL contra a estrutura real do projeto, faça backup e obtenha aprovação antes de aplicá-lo. Não execute `db push` ou `db reset` contra produção automaticamente.
 
@@ -16,7 +16,7 @@ Durante a transição, a tabela poderá conter registros antigos (`turma = NULL`
 
 ## Publicação administrativa
 
-O backend usa `SUPABASE_SECRET_KEY` somente no cliente administrativo do servidor. O frontend nunca recebe essa chave. A publicação permanece bloqueada enquanto `PUBLICATION_ENABLED=false`; altere para `true` somente depois de revisar o esquema e aplicar manualmente a migração aprovada.
+O backend usa `SUPABASE_SECRET_KEY` somente no cliente administrativo do servidor. O frontend nunca recebe essa chave. `SUPABASE_HORARIOS_TABLE=Horarios` mantém o identificador real da tabela; o frontend nunca recebe essa configuração. A publicação permanece bloqueada enquanto `PUBLICATION_ENABLED=false`; altere para `true` somente depois de revisar o esquema e aplicar manualmente a migração aprovada.
 
 Antes de publicar, use `GET /api/schedules/publication/backup` para baixar um JSON recuperável. O arquivo inclui a data, a tabela, as colunas relevantes, todos os registros retornados e um checksum. Registros sem turma são preservados integralmente e não são apagados nem preenchidos automaticamente.
 
@@ -27,18 +27,18 @@ Consultas previstas para a integração futura do chatbot:
 ```sql
 -- Uma turma específica
 SELECT id, turma, curso, horario
-FROM public.horarios
+FROM public."Horarios"
 WHERE turma = '63 2';
 
 -- Todas as turmas de um curso
 SELECT id, turma, curso, horario
-FROM public.horarios
+FROM public."Horarios"
 WHERE curso = 'Informática' AND turma IS NOT NULL
 ORDER BY turma;
 
 -- Todos os horários identificados por turma
 SELECT id, turma, curso, horario
-FROM public.horarios
+FROM public."Horarios"
 WHERE turma IS NOT NULL
 ORDER BY curso, turma;
 ```
