@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getPublicationBackup, previewPublication, publishSchedules } from '../services/api.js';
 
 const scheduleFingerprint = (schedules) => JSON.stringify(schedules);
@@ -24,6 +24,7 @@ export function PublicationPanel({ schedules, courses, accessToken }) {
   const [selectedTurma, setSelectedTurma] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmedReview, setConfirmedReview] = useState(false);
+  const [acceptUnreviewedRisk, setAcceptUnreviewedRisk] = useState(false);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -34,6 +35,13 @@ export function PublicationPanel({ schedules, courses, accessToken }) {
   const visibleRecords = useMemo(() => (preview?.records || []).filter((record) => !selectedCourse || record.curso === selectedCourse), [preview, selectedCourse]);
   const selectedRecord = visibleRecords.find((record) => record.turma === selectedTurma) || visibleRecords[0];
   const selectedChange = selectedRecord ? changeFor(preview?.changes, selectedRecord.turma) : null;
+  const hasUnreviewedRisk = Boolean(preview?.review && !preview.review.complete);
+
+  useEffect(() => {
+    setAcceptUnreviewedRisk(false);
+    setConfirmedReview(false);
+    setConfirmOpen(false);
+  }, [currentInput]);
 
   const runPreview = async () => {
     setBusy('preview');
@@ -43,6 +51,7 @@ export function PublicationPanel({ schedules, courses, accessToken }) {
       const result = await previewPublication(schedules, accessToken);
       setPreview(result);
       setPreviewInput(currentInput);
+      setAcceptUnreviewedRisk(false);
       setSelectedTurma(result.records?.[0]?.turma || '');
       setReport(null);
       setMessage('Prévia gerada. Nenhum registro foi alterado.');
@@ -75,7 +84,7 @@ export function PublicationPanel({ schedules, courses, accessToken }) {
   };
 
   const publish = async () => {
-    if (!preview || stale || !backup || !confirmedReview) return;
+    if (!preview || stale || !backup || !confirmedReview || (hasUnreviewedRisk && !acceptUnreviewedRisk)) return;
     setBusy('publish');
     setError('');
     try {
@@ -84,6 +93,7 @@ export function PublicationPanel({ schedules, courses, accessToken }) {
         previewVersion: preview.publicationVersion,
         baseRecordsChecksum: preview.database.currentChecksum,
         backupChecksum: backup.recordsChecksum,
+        acceptUnreviewedRisk,
         confirmPublication: true,
       }, accessToken);
       setReport(result);
@@ -105,7 +115,7 @@ export function PublicationPanel({ schedules, courses, accessToken }) {
         <div><p className="eyebrow">Etapa 3 de 3</p><h2 id="publication-title">Revisar publicação</h2></div>
         <span className="panel-note">Supabase · ação explícita</span>
       </div>
-      <p>Gere uma prévia com as grades consolidadas que estão no editor. A publicação não executa nova extração e só acontece depois da revisão, do backup e da confirmação final.</p>
+      <p>Gere uma prévia com as grades consolidadas que estão no editor. A publicação não executa nova extração e só acontece depois da prévia, do backup e da confirmação final; revisão incompleta exige aceite explícito de risco.</p>
       <div className="publication-actions">
         <button className="secondary-button" type="button" onClick={runPreview} disabled={busy !== ''}>{busy === 'preview' ? 'Gerando prévia…' : 'Gerar prévia'}</button>
         <button className="secondary-button" type="button" onClick={downloadBackup} disabled={busy !== ''}>{busy === 'backup' ? 'Baixando backup…' : 'Baixar backup dos horários atuais'}</button>
@@ -117,6 +127,10 @@ export function PublicationPanel({ schedules, courses, accessToken }) {
           <span>{preview.summary.aulasProprias} aula(s) própria(s)</span>
           <span>{preview.summary.aulasCompartilhadas} aula(s) compartilhada(s)</span>
           <span>{preview.summary.alteracoesManuais} alteração(ões) manual(is)</span>
+          <span>{preview.summary.turmasCompletamenteRevisadas || 0} turma(s) completamente revisada(s)</span>
+          <span>{preview.summary.turmasComRevisaoIncompleta || 0} turma(s) com revisão incompleta</span>
+          <span>{preview.summary.periodosNaoRevisados || 0} período(s) não revisado(s)</span>
+          <span>{preview.summary.pendenciasBloqueantes || preview.issues.length} erro(s) bloqueante(s)</span>
           <span>{preview.summary.registrosCriados} registro(s) novo(s)</span>
           <span>{preview.summary.registrosAtualizados} atualização(ões)</span>
           <span>{preview.summary.registrosInalterados} inalterado(s)</span>
@@ -126,6 +140,14 @@ export function PublicationPanel({ schedules, courses, accessToken }) {
         </div>
         {stale && <p className="feedback feedback--error">A grade foi alterada depois desta prévia. Gere uma nova prévia antes de publicar.</p>}
         {preview.issues.length > 0 && <div className="publication-issues" role="alert"><strong>Pendências que bloqueiam a publicação ({preview.issues.length})</strong><ul>{preview.issues.map((item, index) => <li key={`${item.code}-${item.path}-${index}`}>{item.message}</li>)}</ul></div>}
+        {hasUnreviewedRisk && <div className="publication-review-summary">
+          <strong>Revisão incompleta</strong>
+          <p>Há turmas, dias ou períodos ainda não revisados. Você pode revisar os itens individualmente ou aceitar explicitamente o risco na confirmação final.</p>
+          <details>
+            <summary>Ver detalhes da revisão</summary>
+            <ul>{(preview.review.byDay || []).map((day) => <li key={day.key}>{day.label}: {day.unreviewedPeriods} período(s) e {day.unreviewedDays} dia(s) não revisado(s).</li>)}</ul>
+          </details>
+        </div>}
         {preview.warnings.length > 0 && <div className="publication-warnings"><strong>Avisos</strong><ul>{preview.warnings.map((item, index) => <li key={`${item.code}-${index}`}>{item.message}</li>)}</ul></div>}
         <div className="publication-filters">
           <label className="field-label">Curso<select value={selectedCourse} onChange={(event) => { setSelectedCourse(event.target.value); setSelectedTurma(''); }}><option value="">Todos</option>{courses.map((course) => <option key={course.name} value={course.name}>{course.name}</option>)}</select></label>
@@ -140,8 +162,9 @@ export function PublicationPanel({ schedules, courses, accessToken }) {
         <h3 id="publication-confirm-title">Confirmar publicação</h3>
         <p>Serão publicados {preview.summary.turmas} registros. Os horários atualmente publicados serão substituídos somente para as turmas correspondentes.</p>
         <p>{preview.summary.registrosCriados} registro(s) serão criados e {preview.summary.registrosAtualizados} serão atualizados.</p>
-        <label><input type="checkbox" checked={confirmedReview} onChange={(event) => setConfirmedReview(event.target.checked)} /> Confirmo que a revisão geral foi concluída e que o backup foi baixado.</label>
-        <div className="publication-actions"><button className="secondary-button" type="button" onClick={() => setConfirmOpen(false)} disabled={busy === 'publish'}>Cancelar</button><button className="primary-button" type="button" onClick={publish} disabled={!confirmedReview || busy === 'publish'}>{busy === 'publish' ? 'Publicando…' : 'Confirmar e publicar'}</button></div>
+        {hasUnreviewedRisk && <label className="publication-risk-checkbox"><input type="checkbox" checked={acceptUnreviewedRisk} onChange={(event) => setAcceptUnreviewedRisk(event.target.checked)} /> Estou ciente de que alguns horários não foram revisados e que a publicação pode conter informações incorretas. Desejo prosseguir mesmo assim.</label>}
+        <label><input type="checkbox" checked={confirmedReview} onChange={(event) => setConfirmedReview(event.target.checked)} /> Confirmo que revisei a prévia, baixei o backup e autorizo a publicação.</label>
+        <div className="publication-actions"><button className="secondary-button" type="button" onClick={() => setConfirmOpen(false)} disabled={busy === 'publish'}>Cancelar</button><button className="primary-button" type="button" onClick={publish} disabled={!confirmedReview || (hasUnreviewedRisk && !acceptUnreviewedRisk) || busy === 'publish'}>{busy === 'publish' ? 'Publicando…' : 'Confirmar e publicar'}</button></div>
       </div>}
       {message && <p className="feedback feedback--success" role="status">{message}</p>}
       {error && <p className="feedback feedback--error" role="alert">{error}</p>}

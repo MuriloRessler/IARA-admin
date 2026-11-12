@@ -26,6 +26,67 @@ const timeToMinutes = (value) => {
 
 const issue = (code, path, message) => ({ code, path, message });
 
+const createReviewState = () => ({
+  unreviewedSchedules: 0,
+  unreviewedDays: 0,
+  unreviewedPeriods: 0,
+  classes: new Map(),
+  days: new Map(DAY_ORDER.map(([key, label]) => [key, { key, label, unreviewedDays: 0, unreviewedPeriods: 0 }])),
+});
+
+const reviewClass = (state, schedule) => {
+  const key = scheduleKey(schedule.curso, schedule.turma);
+  if (!state.classes.has(key)) state.classes.set(key, { key, curso: schedule.curso, turma: schedule.turma, unreviewedSchedule: false, unreviewedDays: 0, unreviewedPeriods: 0, days: [] });
+  return state.classes.get(key);
+};
+
+const recordUnreviewedSchedule = (state, schedule) => {
+  const entry = reviewClass(state, schedule);
+  if (!entry.unreviewedSchedule) {
+    entry.unreviewedSchedule = true;
+    state.unreviewedSchedules += 1;
+  }
+};
+
+const recordUnreviewedDay = (state, schedule, dayKey, label) => {
+  const entry = reviewClass(state, schedule);
+  const day = state.days.get(dayKey);
+  entry.unreviewedDays += 1;
+  entry.days.push({ key: dayKey, label, unreviewedDay: true, unreviewedPeriods: 0, periods: [] });
+  state.unreviewedDays += 1;
+  if (day) day.unreviewedDays += 1;
+};
+
+const recordUnreviewedPeriod = (state, schedule, dayKey, label, period, index) => {
+  const entry = reviewClass(state, schedule);
+  let dayEntry = entry.days.find((candidate) => candidate.key === dayKey);
+  if (!dayEntry) {
+    dayEntry = { key: dayKey, label, unreviewedDay: false, unreviewedPeriods: 0, periods: [] };
+    entry.days.push(dayEntry);
+  }
+  dayEntry.unreviewedPeriods += 1;
+  dayEntry.periods.push({ index, posicao: period?.posicao ?? null, inicio: period?.inicio || null });
+  state.unreviewedPeriods += 1;
+  const day = state.days.get(dayKey);
+  if (day) day.unreviewedPeriods += 1;
+};
+
+const finalizeReviewState = (state, recordCount) => {
+  const classes = [...state.classes.values()]
+    .filter((entry) => entry.unreviewedSchedule || entry.unreviewedDays > 0 || entry.unreviewedPeriods > 0)
+    .map((entry) => ({ ...entry, days: entry.days.map((day) => ({ ...day, periods: day.periods.map((period) => ({ ...period })) })) }));
+  return {
+    complete: state.unreviewedSchedules === 0 && state.unreviewedDays === 0 && state.unreviewedPeriods === 0,
+    turmasCompletamenteRevisadas: Math.max(0, recordCount - classes.length),
+    turmasComRevisaoIncompleta: classes.length,
+    turmasNaoRevisadas: state.unreviewedSchedules,
+    diasNaoRevisados: state.unreviewedDays,
+    periodosNaoRevisados: state.unreviewedPeriods,
+    byDay: [...state.days.values()],
+    classes,
+  };
+};
+
 const stableStringify = (value) => {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
   if (isObject(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
@@ -115,13 +176,14 @@ const summarizeSchedule = (schedule, schedules) => {
   return summary;
 };
 
-const validateDay = (schedule, dayKey, day, schedules, issues, warnings) => {
+const validateDay = (schedule, dayKey, day, schedules, issues, warnings, reviewState) => {
   const path = `${scheduleKey(schedule.curso, schedule.turma)}.dias.${dayKey}`;
+  const dayLabel = DAY_ORDER.find(([key]) => key === dayKey)?.[1] || dayKey;
   if (!isObject(day) || !DAY_STATUSES.has(day.situacao) || !Array.isArray(day.periodos)) {
     issues.push(issue('INVALID_DAY', path, 'O dia possui uma estrutura inválida.'));
     return;
   }
-  if (day.revisao !== 'revisado') issues.push(issue('DAY_NOT_REVIEWED', path, 'O dia ainda não foi marcado como revisado.'));
+  if (day.revisao !== 'revisado') recordUnreviewedDay(reviewState, schedule, dayKey, dayLabel);
   if (!Array.isArray(day.avisos)) issues.push(issue('INVALID_WARNINGS', path, 'A lista de avisos do dia é inválida.'));
   if (Array.isArray(day.avisos) && day.avisos.some((warning) => !warning.resolvido)) issues.push(issue('UNRESOLVED_WARNING', path, 'O dia possui avisos ainda não conferidos.'));
   if (day.situacao === 'pendente') {
@@ -155,7 +217,7 @@ const validateDay = (schedule, dayKey, day, schedules, issues, warnings) => {
     if (!period.estado || !['reconhecido', 'vazio_documento', 'nao_reconhecido', 'parcial'].includes(period.estado)) issues.push(issue('INVALID_PERIOD_STATE', periodPath, 'O estado de leitura do período é inválido.'));
     if (BLOCKING_STATES.has(period.estado)) issues.push(issue('UNRECOGNIZED_PERIOD', periodPath, 'Aula não reconhecida ou parcial exige correção antes da publicação.'));
     if (period.estado !== 'vazio_documento' && (typeof period.disciplina !== 'string' || !period.disciplina.trim())) issues.push(issue('MISSING_SUBJECT', periodPath, 'A disciplina é obrigatória para uma aula reconhecida.'));
-    if (period.revisao !== 'revisado') issues.push(issue('PERIOD_NOT_REVIEWED', periodPath, 'O período ainda não foi revisado.'));
+    if (period.revisao !== 'revisado') recordUnreviewedPeriod(reviewState, schedule, dayKey, dayLabel, period, index);
   });
 };
 
@@ -163,8 +225,9 @@ export const validatePublicationSchedules = (schedules) => {
   const issues = [];
   const warnings = [];
   const records = [];
+  const reviewState = createReviewState();
   if (!isObject(schedules)) {
-    return { valid: false, issues: [issue('INVALID_SCHEDULES', 'schedules', 'As grades devem ser enviadas como um objeto.')], warnings, records, summary: null };
+    return { valid: false, issues: [issue('INVALID_SCHEDULES', 'schedules', 'As grades devem ser enviadas como um objeto.')], warnings, records, summary: null, review: finalizeReviewState(reviewState, 0) };
   }
 
   const expected = new Map(getAllClasses().map(({ course, classCode }) => [scheduleKey(course, classCode), { curso: course, turma: classCode }]));
@@ -185,7 +248,8 @@ export const validatePublicationSchedules = (schedules) => {
       issues.push(issue('MISSING_DAYS', key, 'A grade não possui os dias da semana.'));
       return;
     }
-    DAY_ORDER.forEach(([dayKey]) => validateDay(schedule, dayKey, schedule.dias[dayKey], schedules, issues, warnings));
+    if (schedule.revisao !== 'revisado') recordUnreviewedSchedule(reviewState, schedule);
+    DAY_ORDER.forEach(([dayKey]) => validateDay(schedule, dayKey, schedule.dias[dayKey], schedules, issues, warnings, reviewState));
     const horario = formatPublicationText(schedule, schedules);
     if (!horario.trim()) issues.push(issue('EMPTY_TEXT', key, 'A turma não gerou texto publicável.'));
     records.push({ turma: schedule.turma, curso: schedule.curso, horario });
@@ -210,6 +274,7 @@ export const validatePublicationSchedules = (schedules) => {
     alteracoesManuais: counts.manuais,
   };
   const sortedRecords = records.sort((left, right) => left.turma.localeCompare(right.turma));
+  const review = finalizeReviewState(reviewState, sortedRecords.length);
   return {
     version: PUBLICATION_VERSION,
     valid: issues.length === 0,
@@ -217,6 +282,7 @@ export const validatePublicationSchedules = (schedules) => {
     warnings,
     records: sortedRecords,
     summary,
+    review,
     publicationVersion: recordsChecksum(sortedRecords.map((record) => ({ ...record, id: null }))),
   };
 };

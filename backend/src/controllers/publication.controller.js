@@ -59,6 +59,9 @@ const buildPreview = async (schedules, repository) => {
   if (changes?.extraRecords.length) warnings.push({ code: 'EXTRA_DATABASE_RECORDS', path: 'database', message: `${changes.extraRecords.length} registro(s) com turma fora do catálogo não serão removidos.` });
   const summary = {
     ...(validation.summary || { turmas: 0, cursos: 0, aulasProprias: 0, aulasCompartilhadas: 0, alteracoesManuais: 0 }),
+    turmasCompletamenteRevisadas: validation.review?.turmasCompletamenteRevisadas || 0,
+    turmasComRevisaoIncompleta: validation.review?.turmasComRevisaoIncompleta || 0,
+    periodosNaoRevisados: validation.review?.periodosNaoRevisados || 0,
     registrosCriados: changes?.created.length || 0,
     registrosAtualizados: changes?.updated.length || 0,
     registrosInalterados: changes?.unchanged.length || 0,
@@ -70,6 +73,7 @@ const buildPreview = async (schedules, repository) => {
     publicationAvailable: validation.valid && database.available && database.publicationEnabled && !databaseIssues.length,
     publicationVersion: validation.publicationVersion,
     records: validation.records,
+    review: validation.review,
     summary,
     issues: blockingIssues,
     warnings,
@@ -123,6 +127,9 @@ export const createPublicationController = ({ repository }) => ({
       const validation = validatePublicationSchedules(request.body?.schedules);
       if (!validation.valid) throw createPublicationError('PUBLICATION_VALIDATION_FAILED', 'A grade possui pendências bloqueantes e não pode ser publicada.', 422, { issues: validation.issues });
       if (request.body?.previewVersion !== validation.publicationVersion) throw createPublicationError('PUBLICATION_PREVIEW_STALE', 'A prévia não corresponde à versão atual da grade. Gere uma nova prévia antes de publicar.', 409);
+      if (!validation.review.complete && request.body?.acceptUnreviewedRisk !== true) {
+        throw createPublicationError('PUBLICATION_UNREVIEWED_RISK_REQUIRED', 'A grade possui períodos ou dias não revisados. Aceite explicitamente o risco para prosseguir.', 400, { cause: 'Unreviewed risk acceptance is required.' });
+      }
       if (!repository.isConfigured) throw createPublicationError('PUBLICATION_DATABASE_UNAVAILABLE', 'A publicação está indisponível porque o cliente administrativo do Supabase não foi configurado.', 503);
       if (!repository.publicationEnabled) throw createPublicationError('PUBLICATION_DISABLED', 'A publicação está desabilitada. Revise a migração e defina PUBLICATION_ENABLED=true no backend quando estiver pronta.', 503);
 

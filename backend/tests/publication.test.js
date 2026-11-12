@@ -58,6 +58,21 @@ test('publication validation rejects missing classes, invalid courses, duplicate
   assert.ok(result.issues.some((item) => item.code === 'END_TIME_NOT_ALLOWED'));
 });
 
+test('publication validation reports incomplete review separately from blocking data errors', () => {
+  const schedules = completeSchedules();
+  const schedule = schedules['Informática::61 1'];
+  schedule.revisao = 'nao_revisado';
+  schedule.dias.segunda.revisao = 'nao_revisado';
+  schedule.dias.segunda.periodos[0].revisao = 'nao_revisado';
+  const result = validatePublicationSchedules(schedules);
+  assert.equal(result.valid, true);
+  assert.equal(result.issues.some((item) => item.code === 'PERIOD_NOT_REVIEWED' || item.code === 'DAY_NOT_REVIEWED'), false);
+  assert.equal(result.review.complete, false);
+  assert.equal(result.review.turmasComRevisaoIncompleta, 1);
+  assert.equal(result.review.periodosNaoRevisados, 1);
+  assert.equal(result.review.diasNaoRevisados, 1);
+});
+
 test('publication comparison preserves ids and keeps legacy records outside the publication set', () => {
   const next = [{ turma: '61 1', curso: 'Informática', horario: 'new' }, { turma: '61 2', curso: 'Informática', horario: 'same' }];
   const current = [{ id: 10, turma: '61 1', curso: 'Informática', horario: 'old' }, { id: 11, turma: '61 2', curso: 'Informática', horario: 'same' }, { id: 12, turma: null, curso: 'Informática', horario: 'legacy-url' }];
@@ -125,6 +140,51 @@ test('publication routes preview, backup and publish with administrative authori
   assert.equal(repeated.body.summary.registrosCriados, 0);
   assert.equal(repeated.body.summary.registrosAtualizados, 0);
   assert.equal(repeated.body.summary.registrosInalterados, 49);
+});
+
+test('publication requires risk acceptance only for incomplete review and keeps structural errors blocking', async () => {
+  let records = [];
+  let nextId = 1;
+  const repository = {
+    isConfigured: true,
+    publicationEnabled: true,
+    schemaName: 'public',
+    tableName: 'Horarios',
+    uniqueColumn: 'turma',
+    async verifyPublicationSchema() { return { columnsAccessible: true, empty: records.length === 0 }; },
+    async readAllRecords() { return records; },
+    async readPublicationRecords() { return records.map(({ id, turma, curso, horario }) => ({ id, turma, curso, horario })); },
+    async upsert(nextRecords) {
+      nextRecords.forEach((next) => records.push({ id: nextId++, ...next }));
+      return records;
+    },
+  };
+  const app = createApp({
+    config: { allowedOrigins: ['http://localhost:5173'], adminUserId: 'admin-user-id', publicationEnabled: true },
+    supabaseClient: { auth: { getUser: async () => ({ data: { user: { id: 'admin-user-id' } }, error: null }) } },
+    publicationRepository: repository,
+  });
+  const schedules = completeSchedules();
+  schedules['Informática::61 1'].revisao = 'nao_revisado';
+  schedules['Informática::61 1'].dias.segunda.revisao = 'nao_revisado';
+  schedules['Informática::61 1'].dias.segunda.periodos[0].revisao = 'nao_revisado';
+  const preview = await request(app).post('/api/schedules/publication/preview').set('Authorization', 'Bearer valid-token').send({ schedules });
+  assert.equal(preview.statusCode, 200);
+  assert.equal(preview.body.valid, true);
+  assert.equal(preview.body.summary.periodosNaoRevisados, 1);
+  const backup = await request(app).get('/api/schedules/publication/backup').set('Authorization', 'Bearer valid-token');
+  const payload = { schedules, previewVersion: preview.body.publicationVersion, baseRecordsChecksum: preview.body.database.currentChecksum, backupChecksum: backup.body.recordsChecksum, confirmPublication: true };
+  const withoutAcceptance = await request(app).post('/api/schedules/publication/publish').set('Authorization', 'Bearer valid-token').send(payload);
+  assert.equal(withoutAcceptance.statusCode, 400);
+  assert.equal(withoutAcceptance.body.error.code, 'PUBLICATION_UNREVIEWED_RISK_REQUIRED');
+  const withAcceptance = await request(app).post('/api/schedules/publication/publish').set('Authorization', 'Bearer valid-token').send({ ...payload, acceptUnreviewedRisk: true });
+  assert.equal(withAcceptance.statusCode, 200);
+
+  const structurallyInvalid = completeSchedules();
+  structurallyInvalid['Informática::61 1'].dias.segunda.periodos[0].fim = '08:20';
+  const blocked = await request(app).post('/api/schedules/publication/publish').set('Authorization', 'Bearer valid-token').send({ ...payload, schedules: structurallyInvalid, acceptUnreviewedRisk: true });
+  assert.equal(blocked.statusCode, 422);
+  assert.equal(blocked.body.error.code, 'PUBLICATION_VALIDATION_FAILED');
 });
 
 test('publication formatter resolves a whole-day shared reference without emitting technical source metadata', () => {
