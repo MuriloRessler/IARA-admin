@@ -13,6 +13,7 @@ const databaseUnavailable = (repository, error = null) => ({
   table: repository.tableName || 'Horarios',
   columnsAccessible: false,
   uniqueConstraint: { column: repository.uniqueColumn || 'turma', status: 'not_checked' },
+  configuration: 'unavailable',
   reason: error?.message || (repository.isConfigured ? 'A tabela de horários não pôde ser consultada.' : 'Configure SUPABASE_SECRET_KEY no backend para consultar o banco.'),
   code: error?.code || 'PUBLICATION_DATABASE_UNAVAILABLE',
 });
@@ -32,6 +33,7 @@ const readDatabase = async (repository) => {
       columnsAccessible: schemaCheck.columnsAccessible,
       uniqueConstraint: { column: repository.uniqueColumn || 'turma', status: 'requires_migration_or_upsert_check' },
       publicationEnabled: Boolean(repository.publicationEnabled),
+      configuration: repository.publicationEnabled ? 'ready' : 'disabled',
       records,
       currentChecksum: recordsChecksum(records),
     };
@@ -51,9 +53,9 @@ const buildPreview = async (schedules, repository) => {
     path: `database.${turma}`,
     message: `O banco possui mais de um registro para a turma ${turma}.`,
   })) || [];
-  if (database.available && !database.publicationEnabled) databaseIssues.push({ code: 'PUBLICATION_DISABLED', path: 'backend.PUBLICATION_ENABLED', message: 'A publicação está desabilitada até a revisão da migração e do esquema.' });
   const blockingIssues = [...validation.issues, ...databaseIssues];
   const warnings = [...validation.warnings];
+  if (database.available && !database.publicationEnabled) warnings.push({ code: 'PUBLICATION_DISABLED', path: 'backend.PUBLICATION_ENABLED', message: 'O esquema foi consultado com sucesso, mas a publicação está desabilitada pela configuração do backend. Defina PUBLICATION_ENABLED=true e reinicie o backend quando a revisão operacional estiver concluída.' });
   if (database.available) warnings.push({ code: 'PUBLICATION_UNIQUE_NOT_READ_VERIFIED', path: 'database.uniqueConstraint', message: 'As colunas foram verificadas por leitura. A restrição UNIQUE em turma é validada separadamente pela migração e será reportada especificamente se o upsert for rejeitado.' });
   if (changes?.legacyRecords.length) warnings.push({ code: 'LEGACY_RECORDS_WITHOUT_CLASS', path: 'database', message: `${changes.legacyRecords.length} registro(s) legado(s) não possuem turma e serão preservados.` });
   if (changes?.extraRecords.length) warnings.push({ code: 'EXTRA_DATABASE_RECORDS', path: 'database', message: `${changes.extraRecords.length} registro(s) com turma fora do catálogo não serão removidos.` });
@@ -85,6 +87,7 @@ const buildPreview = async (schedules, repository) => {
       table: database.table,
       columnsAccessible: database.columnsAccessible,
       uniqueConstraint: database.uniqueConstraint,
+      configuration: database.configuration,
       reason: database.reason || null,
       code: database.code || null,
       currentChecksum: database.currentChecksum || null,

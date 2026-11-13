@@ -259,7 +259,7 @@ A publicação exige a confirmação explícita, o checksum do backup, o checksu
 
 Registros existentes são atualizados por `turma`, preservando o `id`; registros ausentes são criados. Registros legados sem turma e turmas fora do catálogo não são removidos. O backup inclui integralmente os registros retornados pela tabela e seu checksum é conferido novamente antes da gravação.
 
-No `.env` do backend, mantenha a chave administrativa somente no backend e deixe a publicação desabilitada até revisar a migração:
+No `.env` do backend, mantenha a chave administrativa somente no backend. A prévia consulta o esquema real de forma independente da chave de habilitação; a publicação efetiva continua exigindo `PUBLICATION_ENABLED=true`, backup, prévia consistente e confirmação humana:
 
 ```ini
 SUPABASE_URL=...
@@ -267,9 +267,9 @@ SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SECRET_KEY=...
 SUPABASE_HORARIOS_TABLE=Horarios
 ADMIN_USER_ID=...
-PUBLICATION_ENABLED=false
+PUBLICATION_ENABLED=true
 ```
 
-Depois de revisar e aplicar manualmente a migração, testar a prévia e confirmar a chave UNIQUE por `turma`, altere `PUBLICATION_ENABLED=true` e reinicie o backend. O sistema não executa migrações, `db push`, `db reset` ou publicações automaticamente.
+Se `PUBLICATION_ENABLED=false`, a prévia ainda informa o estado real do esquema, mas a publicação fica indisponível até que essa configuração seja alterada para `true` e o backend seja reiniciado. Antes disso, revise e aplique manualmente a migração, confirme a chave UNIQUE por `turma` e faça um backup. O sistema não executa migrações, `db push`, `db reset` ou publicações automaticamente.
 
 O SQL preparado em `supabase/migrations/202611110001_prepare_horarios_publication.sql` adiciona `turma` de forma aditiva à tabela existente `public."Horarios"` e prepara uma `UNIQUE CONSTRAINT` compatível com `onConflict: 'turma'`. Revise duplicidades não nulas e faça o backup antes de executar o SQL no Supabase SQL Editor. Registros antigos com `turma IS NULL` são preservados e não recebem uma turma por adivinhação. Consultas por turma e por curso estão documentadas em `supabase/README.md`.

@@ -135,8 +135,10 @@ export function PublicationPanel({ schedules, courses, accessToken }) {
           <span>{preview.summary.registrosAtualizados} atualização(ões)</span>
           <span>{preview.summary.registrosInalterados} inalterado(s)</span>
         </div>
-        <div className={`publication-database ${preview.database.available ? 'publication-database--ready' : 'publication-database--blocked'}`}>
-          {preview.database.available ? `Banco consultado. ${preview.database.legacyRecords} registro(s) legado(s) sem turma foram preservados.` : `Publicação indisponível: ${preview.database.reason || 'o esquema do banco ainda não está preparado.'}`}
+        <div className={`publication-database ${preview.database.available && preview.database.publicationEnabled ? 'publication-database--ready' : 'publication-database--blocked'}`}>
+          {preview.database.available
+            ? `Banco consultado em ${preview.database.schema || 'public'}."${preview.database.table || 'Horarios'}". ${preview.database.legacyRecords} registro(s) legado(s) sem turma foram preservados.${preview.database.publicationEnabled ? ' Publicação habilitada.' : ' Publicação desabilitada pela configuração do backend; defina PUBLICATION_ENABLED=true e reinicie o backend após a revisão operacional.'}`
+            : `Publicação indisponível: ${preview.database.reason || 'o esquema do banco ainda não está preparado.'}`}
         </div>
         {stale && <p className="feedback feedback--error">A grade foi alterada depois desta prévia. Gere uma nova prévia antes de publicar.</p>}
         {preview.issues.length > 0 && <div className="publication-issues" role="alert"><strong>Pendências que bloqueiam a publicação ({preview.issues.length})</strong><ul>{preview.issues.map((item, index) => <li key={`${item.code}-${item.path}-${index}`}>{item.message}</li>)}</ul></div>}

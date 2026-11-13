@@ -16,7 +16,7 @@ Durante a transição, a tabela poderá conter registros antigos (`turma = NULL`
 
 ## Publicação administrativa
 
-O backend usa `SUPABASE_SECRET_KEY` somente no cliente administrativo do servidor. O frontend nunca recebe essa chave. `SUPABASE_HORARIOS_TABLE=Horarios` mantém o identificador real da tabela; o frontend nunca recebe essa configuração. A publicação permanece bloqueada enquanto `PUBLICATION_ENABLED=false`; altere para `true` somente depois de revisar o esquema e aplicar manualmente a migração aprovada.
+O backend usa `SUPABASE_SECRET_KEY` somente no cliente administrativo do servidor. O frontend nunca recebe essa chave. `SUPABASE_HORARIOS_TABLE=Horarios` mantém o identificador real da tabela; o frontend nunca recebe essa configuração. A prévia verifica o esquema independentemente de `PUBLICATION_ENABLED`; a gravação permanece bloqueada enquanto essa chave estiver `false`. Altere para `true` somente depois de revisar o esquema e aplicar manualmente a migração aprovada.
 
 Antes de publicar, use `GET /api/schedules/publication/backup` para baixar um JSON recuperável. O arquivo inclui a data, a tabela, as colunas relevantes, todos os registros retornados e um checksum. Registros sem turma são preservados integralmente e não são apagados nem preenchidos automaticamente.
 

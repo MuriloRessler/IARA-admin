@@ -187,6 +187,37 @@ test('publication requires risk acceptance only for incomplete review and keeps 
   assert.equal(blocked.body.error.code, 'PUBLICATION_VALIDATION_FAILED');
 });
 
+test('schema validation is independent from the publication feature flag', async () => {
+  const repository = {
+    isConfigured: true,
+    publicationEnabled: false,
+    schemaName: 'public',
+    tableName: 'Horarios',
+    uniqueColumn: 'turma',
+    async verifyPublicationSchema() { return { columnsAccessible: true, empty: true }; },
+    async readPublicationRecords() { return []; },
+    async readAllRecords() { return []; },
+  };
+  const app = createApp({
+    config: { allowedOrigins: ['http://localhost:5173'], adminUserId: 'admin-user-id', publicationEnabled: false },
+    supabaseClient: { auth: { getUser: async () => ({ data: { user: { id: 'admin-user-id' } }, error: null }) } },
+    publicationRepository: repository,
+  });
+  const schedules = completeSchedules();
+  const preview = await request(app).post('/api/schedules/publication/preview').set('Authorization', 'Bearer valid-token').send({ schedules });
+  assert.equal(preview.statusCode, 200);
+  assert.equal(preview.body.valid, true);
+  assert.equal(preview.body.publicationAvailable, false);
+  assert.equal(preview.body.database.available, true);
+  assert.equal(preview.body.database.configuration, 'disabled');
+  assert.equal(preview.body.issues.some((item) => item.code === 'PUBLICATION_DISABLED'), false);
+  assert.ok(preview.body.warnings.some((item) => item.code === 'PUBLICATION_DISABLED'));
+
+  const blocked = await request(app).post('/api/schedules/publication/publish').set('Authorization', 'Bearer valid-token').send({ schedules, previewVersion: preview.body.publicationVersion, confirmPublication: true });
+  assert.equal(blocked.statusCode, 503);
+  assert.equal(blocked.body.error.code, 'PUBLICATION_DISABLED');
+});
+
 test('publication formatter resolves a whole-day shared reference without emitting technical source metadata', () => {
   const source = emptySchedule('Informática', '61 1');
   source.dias.segunda = { situacao: 'com_aulas', periodos: [{ posicao: 1, inicio: '07:30', estado: 'reconhecido', disciplina: 'Programação', professor: 'Bia', sala: '', revisao: 'revisado' }], compartilhamento: null, revisao: 'revisado', avisos: [] };

@@ -12,7 +12,7 @@ vi.mock('../src/services/api.js', () => ({
 const preview = {
   publicationAvailable: true,
   publicationVersion: 'preview-version',
-  database: { available: true, currentChecksum: 'current-checksum', legacyRecords: 0 },
+  database: { available: true, publicationEnabled: true, schema: 'public', table: 'Horarios', currentChecksum: 'current-checksum', legacyRecords: 0 },
   summary: { turmas: 49, cursos: 8, aulasProprias: 10, aulasCompartilhadas: 2, alteracoesManuais: 1, registrosCriados: 48, registrosAtualizados: 1, registrosInalterados: 0 },
   records: [{ turma: '61 1', curso: 'Informática', horario: 'TURMA: 61 1\nSEGUNDA-FEIRA\n07:30 - Matemática' }],
   changes: { created: [{ after: { turma: '61 1' } }], updated: [], unchanged: [] },
