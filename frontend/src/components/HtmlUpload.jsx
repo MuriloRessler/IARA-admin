@@ -1,14 +1,12 @@
 import { useRef, useState } from 'react';
-import { formatFileSize, validateImportFile } from '../services/pdf.js';
+import { formatFileSize, validateHtmlFile } from '../services/import-file.js';
 
-const isPdf = (file) => file?.name?.toLowerCase().endsWith('.pdf');
-
-export function PdfUpload({ file, onFileChange, onRemove }) {
+export function HtmlUpload({ file, onFileChange, onRemove }) {
   const inputRef = useRef(null);
   const [error, setError] = useState('');
 
   const selectFile = (candidate) => {
-    const result = validateImportFile(candidate);
+    const result = validateHtmlFile(candidate);
     if (!result.valid) {
       setError(result.error);
       return;
@@ -28,13 +26,13 @@ export function PdfUpload({ file, onFileChange, onRemove }) {
   };
 
   return (
-    <section className="panel-card" aria-labelledby="pdf-upload-title">
+    <section className="panel-card" aria-labelledby="html-upload-title">
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Arquivo local</p>
-          <h2 id="pdf-upload-title">Importar horários</h2>
+          <h2 id="html-upload-title">Importar horários</h2>
         </div>
-        <span className="panel-note">HTML: 10 MB · PDF: 20 MB</span>
+        <span className="panel-note">HTML: 10 MB</span>
       </div>
       <div
         className={`drop-zone ${file ? 'drop-zone--selected' : ''}`}
@@ -43,7 +41,7 @@ export function PdfUpload({ file, onFileChange, onRemove }) {
       >
         {file ? (
           <div className="file-summary">
-            <span className="file-icon" aria-hidden="true">{isPdf(file) ? 'PDF' : 'HTML'}</span>
+            <span className="file-icon" aria-hidden="true">HTML</span>
             <div>
               <strong>{file.name}</strong>
               <span>{formatFileSize(file.size)}</span>
@@ -52,18 +50,18 @@ export function PdfUpload({ file, onFileChange, onRemove }) {
         ) : (
           <>
             <span className="drop-zone__icon" aria-hidden="true">↑</span>
-            <strong>Arraste um HTML ou PDF para esta área</strong>
-            <span>O HTML estruturado é o fluxo principal; o PDF permanece como alternativa.</span>
+            <strong>Arraste um arquivo HTML para esta área</strong>
+            <span>O HTML estruturado é o formato oficial para importar horários.</span>
           </>
         )}
         <button className="secondary-button" type="button" onClick={() => inputRef.current?.click()}>
           {file ? 'Substituir arquivo' : 'Selecionar arquivo'}
         </button>
-        <input ref={inputRef} className="visually-hidden" type="file" accept="application/pdf,.pdf,text/html,.html,.htm" onChange={handleInput} />
+        <input ref={inputRef} className="visually-hidden" type="file" accept=".html,.htm,text/html" onChange={handleInput} />
       </div>
       {file && (
         <div className="upload-success" role="status">
-          {isPdf(file) ? 'PDF selecionado para o fluxo secundário.' : 'HTML selecionado para importação estruturada.'}
+          HTML selecionado para importação estruturada.
           <button className="text-button" type="button" onClick={() => { setError(''); onRemove(); }}>Remover arquivo</button>
         </div>
       )}

@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react';
-import { ConnectionStatus } from './ConnectionStatus.jsx';
-import { getHealth } from '../services/api.js';
+import { IaraLogo } from './IaraLogo.jsx';
 
 const navigation = [
   { key: 'overview', label: 'Visão geral' },
@@ -9,21 +7,14 @@ const navigation = [
 ];
 
 export function AdminLayout({ admin, activeView, onNavigate, onLogout, children }) {
-  const [connectionStatus, setConnectionStatus] = useState('loading');
-
-  useEffect(() => {
-    getHealth()
-      .then(() => setConnectionStatus('connected'))
-      .catch(() => setConnectionStatus('error'));
-  }, []);
-
   return (
     <div className="admin-shell">
       <header className="app-header">
-        <div className="brand-mark">IA</div>
+        <button className="brand-link" type="button" onClick={() => onNavigate('overview')} aria-label="Ir para a visão geral do IARA-admin">
+          <IaraLogo variant="compact" />
+        </button>
         <div className="brand-copy">
-          <p className="eyebrow">Inteligência Artificial de Resposta e Atendimento</p>
-          <h1>IARA</h1>
+          <p className="eyebrow">Administração escolar</p>
           <p className="header-subtitle">Gerenciador de Horários</p>
         </div>
         <div className="admin-actions">
@@ -32,7 +23,6 @@ export function AdminLayout({ admin, activeView, onNavigate, onLogout, children 
             <strong>{admin?.email}</strong>
           </div>
           <button className="logout-button" type="button" onClick={onLogout}>Sair</button>
-          <ConnectionStatus status={connectionStatus} />
         </div>
       </header>
       <nav className="admin-nav" aria-label="Navegação principal">

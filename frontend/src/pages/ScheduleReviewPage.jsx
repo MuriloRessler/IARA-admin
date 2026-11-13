@@ -1,7 +1,6 @@
 import { ClassSelector } from '../components/ClassSelector.jsx';
 import { CourseSelector } from '../components/CourseSelector.jsx';
 import { DraftControls } from '../components/DraftControls.jsx';
-import { PdfPreview } from '../components/PdfPreview.jsx';
 import { ScheduleTextPreview } from '../components/ScheduleTextPreview.jsx';
 import { ValidationSummary } from '../components/ValidationSummary.jsx';
 import { WeeklySchedule } from '../components/WeeklySchedule.jsx';
@@ -10,7 +9,7 @@ import { PublicationPanel } from '../components/PublicationPanel.jsx';
 
 export function ScheduleReviewPage({
   courses, classes, selectedCourse, selectedClass, onCourseChange, onClassChange,
-  schedule, schedules, rawSchedules, sources, file, accessToken, validation, onDayChange, onPeriodChange,
+  schedule, schedules, rawSchedules, sources, accessToken, validation, onDayChange, onPeriodChange,
   onEditPeriod, onSplitPeriod, onAddPeriod, onRemovePeriod, onShare, onRemoveShare, onImportDraft,
   onReviewDay, onResolveWarning,
   onExported, onImported, hasChanges, sharing, sharingSummary, pairCatalog, suggestions, conflicts, onSetSuggestionStatus,
@@ -31,10 +30,9 @@ export function ScheduleReviewPage({
       <div className="review-layout">
         <div className="review-main">
           <ValidationSummary validation={validation} schedule={schedule} />
-          <WeeklySchedule schedule={schedule} schedules={schedules} sources={sources} file={file} accessToken={accessToken} onDayChange={onDayChange} onPeriodChange={onPeriodChange} onEditPeriod={onEditPeriod} onSplitPeriod={onSplitPeriod} onAddPeriod={onAddPeriod} onRemovePeriod={onRemovePeriod} onShare={onShare} onRemoveShare={onRemoveShare} onReviewDay={onReviewDay} onResolveWarning={onResolveWarning} />
+          <WeeklySchedule schedule={schedule} schedules={schedules} sources={sources} onDayChange={onDayChange} onPeriodChange={onPeriodChange} onEditPeriod={onEditPeriod} onSplitPeriod={onSplitPeriod} onAddPeriod={onAddPeriod} onRemovePeriod={onRemovePeriod} onShare={onShare} onRemoveShare={onRemoveShare} onReviewDay={onReviewDay} onResolveWarning={onResolveWarning} />
         </div>
         <aside className="review-aside">
-          <PdfPreview file={file} />
           <ScheduleTextPreview schedule={schedule} schedules={schedules} />
         </aside>
       </div>

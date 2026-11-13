@@ -9,7 +9,7 @@ export function Dashboard({ totalClasses, onNavigate }) {
       <section className="workflow-grid" aria-label="Etapas do gerenciamento">
         <button className="workflow-card workflow-card--active" type="button" onClick={() => onNavigate('import')}>
           <span className="workflow-number">01</span>
-          <span><strong>Importar PDF</strong><small>Selecione um documento local para consulta.</small></span>
+          <span><strong>Importar HTML</strong><small>Selecione o arquivo estruturado da escola.</small></span>
           <span className="workflow-action">Abrir →</span>
         </button>
         <button className="workflow-card workflow-card--active" type="button" onClick={() => onNavigate('review')}>

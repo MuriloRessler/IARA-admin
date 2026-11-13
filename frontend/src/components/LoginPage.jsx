@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { IaraLogo } from './IaraLogo.jsx';
 
 export function LoginPage({ onSubmit, isSubmitting, configurationError, error }) {
   const [email, setEmail] = useState('');
@@ -13,7 +14,7 @@ export function LoginPage({ onSubmit, isSubmitting, configurationError, error })
   return (
     <main className="login-page">
       <section className="login-card" aria-labelledby="login-title">
-        <div className="brand-mark">IA</div>
+        <IaraLogo variant="large" className="login-brand" />
         <p className="eyebrow">IARA · Gerenciador de Horários</p>
         <h1 id="login-title">Acesso administrativo</h1>
         <p className="login-introduction">Entre com a conta autorizada para acessar o painel da IARA.</p>

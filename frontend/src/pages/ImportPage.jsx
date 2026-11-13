@@ -1,39 +1,30 @@
 import { useMemo, useState } from 'react';
-import { CourseSelector } from '../components/CourseSelector.jsx';
-import { PdfPreview } from '../components/PdfPreview.jsx';
-import { PdfUpload } from '../components/PdfUpload.jsx';
-import { CalibrationPanel } from '../components/CalibrationPanel.jsx';
-import { extractSchedules, importHtmlSchedules } from '../services/api.js';
+import { HtmlUpload } from '../components/HtmlUpload.jsx';
+import { importHtmlSchedules } from '../services/api.js';
 
-const isHtmlFile = (file) => /\.html?$/i.test(file?.name || '');
-
-export function ImportPage({ courses, selectedCourse, accessToken, onCourseChange, file, onFileChange, onRemoveFile, onContinue, onImportExtracted }) {
-  const [isExtracting, setIsExtracting] = useState(false);
+export function ImportPage({ accessToken, file, onFileChange, onRemoveFile, onContinue, onImportExtracted }) {
+  const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [selectedKeys, setSelectedKeys] = useState([]);
-  const [calibration, setCalibration] = useState(null);
   const [resultCourseFilter, setResultCourseFilter] = useState('');
-  const htmlSelected = isHtmlFile(file);
   const extractedEntries = useMemo(() => Object.entries(result?.schedules || {})
     .filter(([, schedule]) => !resultCourseFilter || schedule.curso === resultCourseFilter), [result, resultCourseFilter]);
   const resultCourses = useMemo(() => [...new Set(Object.values(result?.schedules || {}).map((schedule) => schedule.curso))], [result]);
 
-  const runExtraction = async () => {
-    if (!file || isExtracting) return;
-    setIsExtracting(true);
+  const runImport = async () => {
+    if (!file || isImporting) return;
+    setIsImporting(true);
     setError(null);
     try {
-      const nextResult = htmlSelected
-        ? await importHtmlSchedules(file, accessToken)
-        : await extractSchedules(file, selectedCourse, accessToken, calibration);
+      const nextResult = await importHtmlSchedules(file, accessToken);
       setResult(nextResult);
       setResultCourseFilter('');
       setSelectedKeys(Object.keys(nextResult.schedules || {}));
     } catch (requestError) {
       setError(requestError.message || 'Não foi possível concluir a importação.');
     } finally {
-      setIsExtracting(false);
+      setIsImporting(false);
     }
   };
 
@@ -46,31 +37,24 @@ export function ImportPage({ courses, selectedCourse, accessToken, onCourseChang
       <section className="page-intro">
         <p className="eyebrow">Etapa 1 de 3</p>
         <h2>Importar horários</h2>
-        <p>Use o HTML estruturado como fluxo principal. O PDF permanece disponível como alternativa secundária e ambos exigem conferência humana.</p>
+        <p>Selecione o arquivo HTML exportado pelo sistema de horários da escola para carregar as turmas e seus respectivos horários.</p>
       </section>
-      <section className="panel-card course-panel">
-        <CourseSelector courses={courses} value={selectedCourse} onChange={onCourseChange} id="import-course" />
-        <p className="helper-text">No HTML, todas as turmas reconhecidas do catálogo são importadas em um único arquivo. A seleção abaixo organiza a conferência inicial.</p>
-      </section>
-      <PdfUpload file={file} onFileChange={onFileChange} onRemove={onRemoveFile} />
-      <PdfPreview file={file} />
+      <HtmlUpload file={file} onFileChange={onFileChange} onRemove={onRemoveFile} />
       <section className="panel-card extraction-panel">
         <div className="panel-heading">
-          <div><p className="eyebrow">{htmlSelected ? 'Importação estruturada' : 'Extração secundária'}</p><h2>{htmlSelected ? 'Importar horários' : 'Processar PDF localmente'}</h2></div>
+          <div><p className="eyebrow">Importação estruturada</p><h2>Importar horários</h2></div>
           <span className="panel-note">Revisão obrigatória</span>
         </div>
-        <p>{htmlSelected
-          ? 'O backend lê a tabela HTML em memória, preserva as dez posições de cada dia e usa somente o catálogo oficial para identificar as turmas. O documento não é renderizado nem executado no navegador.'
-          : 'O backend identifica a estrutura do PDF, recorta as células e aplica OCR localmente. O PDF não é enviado a serviços externos e nenhuma publicação é feita.'}</p>
-        <button className="primary-button" type="button" onClick={runExtraction} disabled={!file || isExtracting}>
-          {isExtracting ? 'Processando arquivo…' : htmlSelected ? 'Importar horários' : 'Processar PDF'}
+        <p>O backend lê a tabela HTML em memória, preserva as dez posições de cada dia e usa somente o catálogo oficial para identificar as turmas. O documento não é renderizado nem executado no navegador.</p>
+        <button className="primary-button" type="button" onClick={runImport} disabled={!file || isImporting}>
+          {isImporting ? 'Importando arquivo…' : 'Importar horários'}
         </button>
-        {isExtracting && <p className="helper-text" role="status">A análise pode levar alguns instantes. Não feche esta página.</p>}
+        {isImporting && <p className="helper-text" role="status">A análise pode levar alguns instantes. Não feche esta página.</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
       </section>
       {result && <section className="panel-card extraction-result" aria-live="polite">
         <div className="panel-heading">
-          <div><p className="eyebrow">Resultado provisório · {result.origem === 'html' ? 'HTML estruturado' : 'PDF'}</p><h2>{result.classes.length} turma(s) reconhecida(s)</h2></div>
+          <div><p className="eyebrow">Resultado provisório · HTML estruturado</p><h2>{result.classes.length} turma(s) reconhecida(s)</h2></div>
           <span className="status-chip status-chip--pendente">Não revisado</span>
         </div>
         <p>Foi analisado <strong>{result.arquivo}</strong>. Selecione as turmas que deseja carregar no editor; os dados existentes só serão substituídos após confirmação.</p>
@@ -98,7 +82,6 @@ export function ImportPage({ courses, selectedCourse, accessToken, onCourseChang
         </ul>}
         <button className="secondary-button" type="button" disabled={!selectedKeys.length} onClick={() => onImportExtracted(Object.fromEntries(selectedKeys.map((key) => [key, result.schedules[key]])))}>Importar selecionadas para conferência</button>
       </section>}
-      {!htmlSelected && result?.diagnosticoEstrutural && <CalibrationPanel diagnostic={result.diagnosticoEstrutural} classOptions={courses.find((course) => course.name === selectedCourse)?.classes || []} calibration={calibration} onChange={setCalibration} />}
       <div className="page-actions">
         <button className="primary-button" type="button" onClick={onContinue}>Ir para conferência manual</button>
       </div>
