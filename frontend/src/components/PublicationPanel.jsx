@@ -36,6 +36,17 @@ export function PublicationPanel({ schedules, courses, accessToken }) {
   const selectedRecord = visibleRecords.find((record) => record.turma === selectedTurma) || visibleRecords[0];
   const selectedChange = selectedRecord ? changeFor(preview?.changes, selectedRecord.turma) : null;
   const hasUnreviewedRisk = Boolean(preview?.review && !preview.review.complete);
+  const publicationBlockReason = !preview?.publicationAvailable
+    ? (preview?.database?.reason || (preview?.database?.publicationEnabled === false
+      ? 'O backend ainda não habilitou a publicação.'
+      : 'A prévia não atende aos requisitos técnicos do Supabase.'))
+    : preview?.issues?.length > 0
+      ? 'Resolva as pendências bloqueantes exibidas acima.'
+      : stale
+        ? 'A grade mudou depois da prévia. Gere uma nova prévia.'
+        : !backup
+          ? 'Baixe o backup dos horários atuais antes de publicar.'
+          : '';
 
   useEffect(() => {
     setAcceptUnreviewedRisk(false);
@@ -157,7 +168,8 @@ export function PublicationPanel({ schedules, courses, accessToken }) {
         </div>
         {selectedRecord && <div className="publication-record-preview"><div><strong>{selectedRecord.turma}</strong><span>{selectedRecord.curso}</span></div><pre>{selectedRecord.horario}</pre><small>{selectedChange ? (preview.changes?.updated?.some((change) => change.after.turma === selectedRecord.turma) ? 'Será atualizado' : preview.changes?.created?.some((change) => change.after.turma === selectedRecord.turma) ? 'Será criado' : 'Permanecerá inalterado') : 'Registro da prévia'}</small></div>}
         {backup && <p className="helper-text">Backup confirmado em {backup.exportedAt}. Ele será comparado novamente antes da gravação.</p>}
-        <button className="primary-button" type="button" onClick={openConfirmation} disabled={busy !== '' || stale || !preview.publicationAvailable || preview.issues.length > 0 || !backup}>Publicar horários no Supabase</button>
+        <button className="primary-button" type="button" onClick={openConfirmation} disabled={busy !== '' || stale || !preview.publicationAvailable || preview.issues.length > 0 || !backup} title={publicationBlockReason || 'Abrir confirmação de publicação'}>Publicar horários no Supabase</button>
+        {publicationBlockReason && <p className="publication-button-status" role="status">Publicação indisponível: {publicationBlockReason}</p>}
       </>}
       {!preview && <p className="helper-text">Gere a prévia para consultar o banco e visualizar as diferenças antes de qualquer publicação.</p>}
       {confirmOpen && preview && <div className="publication-confirmation" role="dialog" aria-modal="true" aria-labelledby="publication-confirm-title">

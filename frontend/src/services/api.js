@@ -95,11 +95,16 @@ export const getCellPreview = async (file, page, bbox, accessToken) => {
   return URL.createObjectURL(await response.blob());
 };
 
+const PUBLICATION_TIMEOUT_MS = 30000;
+
 const publicationRequest = async (path, accessToken, options = {}) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), PUBLICATION_TIMEOUT_MS);
   let response;
   try {
     response = await fetch(`${apiBaseUrl}/schedules/publication/${path}`, {
       ...options,
+      signal: controller.signal,
       headers: {
         Authorization: `Bearer ${accessToken}`,
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
@@ -107,10 +112,15 @@ const publicationRequest = async (path, accessToken, options = {}) => {
       },
     });
   } catch (error) {
-    const communicationError = new Error('Não foi possível comunicar com o backend durante a operação de publicação. Verifique se o servidor está em execução.');
-    communicationError.code = 'BACKEND_UNREACHABLE';
+    const timedOut = error?.name === 'AbortError';
+    const communicationError = new Error(timedOut
+      ? 'A operação de publicação excedeu o tempo limite. Consulte o estado do banco antes de tentar novamente.'
+      : 'Não foi possível comunicar com o backend durante a operação de publicação. Verifique se o servidor está em execução.');
+    communicationError.code = timedOut ? 'PUBLICATION_TIMEOUT' : 'BACKEND_UNREACHABLE';
     communicationError.cause = error;
     throw communicationError;
+  } finally {
+    clearTimeout(timeoutId);
   }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {

@@ -5,6 +5,7 @@ import { SharedDayDialog } from './SharedDayDialog.jsx';
 import { PeriodEditorDialog } from './PeriodEditorDialog.jsx';
 import { PeriodSplitDialog } from './PeriodSplitDialog.jsx';
 import { CellPreviewDialog } from './CellPreviewDialog.jsx';
+import { getDayTurnSummaries } from '../../../shared/schedule-sharing.js';
 
 const statusLabels = {
   com_aulas: 'Com aulas',
@@ -25,6 +26,7 @@ export function DaySchedule({ dayDefinition, schedule, schedules, sources, file,
   const displayedPeriods = day.situacao === 'compartilhado' ? effective.periods : day.periodos;
   const sourceLabel = day.compartilhamento ? `${day.compartilhamento.turma} · ${day.compartilhamento.curso}` : '';
   const periodIds = useMemo(() => new Set(day.periodos.map((period) => period.id)), [day.periodos]);
+  const turnSummaries = getDayTurnSummaries(day);
 
   const changeStatus = (nextStatus) => {
     if (nextStatus === 'compartilhado') {
@@ -52,6 +54,11 @@ export function DaySchedule({ dayDefinition, schedule, schedules, sources, file,
           </select>
         </label>
       </div>
+      {day.situacao === 'com_aulas' && <div className="turn-summary" aria-label={`Turnos da ${label}`}>
+        {turnSummaries.map((turn) => <span className={`turn-summary__item turn-summary__item--${turn.status}`} key={turn.key}>
+          <strong>{turn.label}</strong> {turn.status === 'folga' ? 'turno de folga' : turn.status === 'vazio' ? 'sem aulas registradas' : `${turn.lessons} aula(s)`}
+        </span>)}
+      </div>}
       {day.situacao === 'compartilhado' ? (
         <>
           <div className="inherited-note">Aulas herdadas de <strong>{sourceLabel || 'uma turma ainda não selecionada'}</strong></div>

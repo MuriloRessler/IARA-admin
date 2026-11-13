@@ -58,6 +58,39 @@ describe('publication panel', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('A publicação está indisponível.'));
   });
 
+  it('shows the real technical reason when publication is blocked', async () => {
+    previewPublication.mockResolvedValue({
+      ...preview,
+      publicationAvailable: false,
+      database: { ...preview.database, available: false, reason: 'A coluna turma nao existe na tabela consultada.' },
+      issues: [{ code: 'PUBLICATION_COLUMN_MISSING', message: 'A coluna turma nao existe na tabela consultada.' }],
+    });
+    render(<PublicationPanel schedules={{ sample: {} }} courses={[]} accessToken="token" />);
+    fireEvent.click(screen.getByRole('button', { name: /Gerar/ }));
+    await waitFor(() => expect(screen.getAllByText(/A coluna turma nao existe/).length).toBeGreaterThan(0));
+    expect(screen.getByRole('button', { name: /Publicar/ })).toBeDisabled();
+  });
+
+  it('resets the publishing state after a request error and allows retry', async () => {
+    let rejectPublish;
+    previewPublication.mockResolvedValue(preview);
+    getPublicationBackup.mockResolvedValue({ exportedAt: '2026-11-11T12:00:00.000Z', recordsChecksum: 'backup-checksum', records: [] });
+    publishSchedules.mockImplementation(() => new Promise((_resolve, reject) => { rejectPublish = reject; }));
+    render(<PublicationPanel schedules={{ sample: { curso: 'InformÃ¡tica', turma: '61 1' } }} courses={[{ name: 'InformÃ¡tica', classes: ['61 1'] }]} accessToken="token" />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Gerar/ }));
+    await waitFor(() => expect(screen.getByText(/Prévia gerada/)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Baixar backup/ }));
+    await waitFor(() => expect(getPublicationBackup).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: /Publicar/ }));
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e publicar/ }));
+    expect(screen.getByRole('button', { name: /Publicando/ })).toBeDisabled();
+    rejectPublish(new Error('Falha de publicação'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Falha de publicação'));
+    expect(screen.getByRole('button', { name: /Publicar/ })).not.toBeDisabled();
+  });
+
   it('requires explicit risk acceptance when the preview has unreviewed periods', async () => {
     previewPublication.mockResolvedValue({
       ...preview,

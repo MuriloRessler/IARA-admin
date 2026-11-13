@@ -1,3 +1,5 @@
+import { SCHOOL_SCHEDULE_RULES } from './schedule-rules.js';
+
 const DAYS = ['segunda', 'terca', 'quarta', 'quinta', 'sexta'];
 
 const PAIR_DEFINITIONS = [
@@ -32,8 +34,28 @@ export const createSharingState = (overrides = {}) => ({
 
 const identityOf = (period) => `${period?.posicao ?? ''}|${period?.inicio || ''}`;
 
+const PERIOD_STARTS = SCHOOL_SCHEDULE_RULES.referenceProfiles.informaticaReference.starts;
+const MORNING_PERIOD_COUNT = Math.ceil(PERIOD_STARTS.length / 2);
+const TURN_DEFINITIONS = [
+  { key: 'manha', label: 'Manhã', positions: Array.from({ length: MORNING_PERIOD_COUNT }, (_item, index) => index + 1) },
+  { key: 'tarde', label: 'Tarde', positions: Array.from({ length: PERIOD_STARTS.length - MORNING_PERIOD_COUNT }, (_item, index) => index + MORNING_PERIOD_COUNT + 1) },
+];
+
+const turnFor = (period) => {
+  const position = Number(period?.posicao);
+  const resolvedPosition = Number.isInteger(position) && position > 0
+    ? position
+    : PERIOD_STARTS.indexOf(period?.inicio) + 1;
+  return TURN_DEFINITIONS.find((turn) => turn.positions.includes(resolvedPosition))?.key || null;
+};
+
 const hasOwnLesson = (period) => Boolean(period
-  && period.estado !== 'vazio_documento'
+  && period.compartilhamentoStatus !== 'automatico'
+  && period.origemEdicao !== 'compartilhamento_automatico'
+  && (period.estado !== 'vazio_documento' || period.manualOverride || period.compartilhamentoStatus === 'substituida' || period.origemEdicao === 'manual')
+  && (period.disciplina?.trim() || period.professor?.trim() || period.textoOriginal?.trim()));
+
+const hasVisibleLesson = (period) => Boolean(period
   && (period.disciplina?.trim() || period.professor?.trim() || period.textoOriginal?.trim()));
 
 const sourceFingerprint = (period) => JSON.stringify({
@@ -73,6 +95,18 @@ const pairHasBothSchedules = (pair, schedules) => Boolean(
   && schedules?.[scheduleKey(pair.second.curso, pair.second.turma)],
 );
 
+const ownPeriodsFor = (day) => (day?.periodos || []).filter(hasOwnLesson);
+
+const eligibleTurnsFor = (day) => {
+  const ownPeriods = ownPeriodsFor(day);
+  if (ownPeriods.length === 0) return new Set(TURN_DEFINITIONS.map((turn) => turn.key));
+  if (ownPeriods.length >= 4) return new Set();
+  return new Set(ownPeriods.map(turnFor).filter(Boolean));
+};
+
+const isAutomaticPeriod = (period) => period?.compartilhamentoStatus === 'automatico'
+  || period?.origemEdicao === 'compartilhamento_automatico';
+
 export const getAutomaticPairDecisions = ({ schedules = {}, sharing = createSharingState() }) => {
   const official = getPairCatalog()
     .filter((pair) => pairHasBothSchedules(pair, schedules))
@@ -105,12 +139,26 @@ export const buildSharingSuggestions = ({ schedules, sharing = createSharingStat
       if (!targetSchedule || !sourceSchedule) continue;
       for (const dayKey of DAYS) {
         const targetDay = targetSchedule.dias[dayKey];
-        if (['sem_aulas', 'compartilhado'].includes(targetDay?.situacao)) continue;
+        const sourceDay = sourceSchedule.dias[dayKey];
+        if (['sem_aulas', 'compartilhado'].includes(targetDay?.situacao)
+          || ['sem_aulas', 'compartilhado'].includes(sourceDay?.situacao)) continue;
+        const targetOwnPeriods = ownPeriodsFor(targetDay);
+        if (targetOwnPeriods.length >= 4) continue;
+        const eligibleTurns = eligibleTurnsFor(targetDay);
         const targetPeriods = indexPeriods(targetDay);
-        const sourcePeriods = indexPeriods(sourceSchedule.dias[dayKey]);
+        const sourcePeriods = indexPeriods(sourceDay);
         for (const [identity, sourcePeriod] of sourcePeriods.entries()) {
-          const targetPeriod = targetPeriods.get(identity);
-          if (!targetPeriod || hasOwnLesson(targetPeriod) || !hasOwnLesson(sourcePeriod)) continue;
+          if (!hasOwnLesson(sourcePeriod)) continue;
+          const targetPeriod = targetPeriods.get(identity) || {
+            id: `empty:${target.curso}:${target.turma}:${dayKey}:${identity}`,
+            posicao: sourcePeriod.posicao ?? null,
+            inicio: sourcePeriod.inicio || '',
+            estado: 'vazio_documento',
+            disciplina: '',
+            professor: '',
+            sala: '',
+          };
+          if (hasOwnLesson(targetPeriod) || !eligibleTurns.has(turnFor(sourcePeriod))) continue;
           const id = `sharing:${pair.id}:${target.curso}:${target.turma}:${dayKey}:${identity}`;
           suggestions.push(createSuggestion({
             target,
@@ -131,9 +179,13 @@ export const buildSharingSuggestions = ({ schedules, sharing = createSharingStat
 const isSuggestionVisible = (suggestion) => ['automatico', 'sugerida', 'confirmada'].includes(suggestion.status);
 
 export const applySharingSuggestions = (schedules, suggestions = []) => {
+  const activeSuggestionIds = new Set(suggestions.filter(isSuggestionVisible).map((suggestion) => suggestion.id));
   const result = Object.fromEntries(Object.entries(schedules).map(([key, schedule]) => [key, {
     ...schedule,
-    dias: Object.fromEntries(Object.entries(schedule.dias).map(([dayKey, day]) => [dayKey, { ...day, periodos: [...day.periodos] }])),
+    dias: Object.fromEntries(Object.entries(schedule.dias).map(([dayKey, day]) => [dayKey, {
+      ...day,
+      periodos: day.periodos.filter((period) => !isAutomaticPeriod(period) || activeSuggestionIds.has(period.id)),
+    }])),
   }]));
 
   for (const suggestion of suggestions.filter(isSuggestionVisible)) {
@@ -164,10 +216,22 @@ export const applySharingSuggestions = (schedules, suggestions = []) => {
     result[targetKey].dias[suggestion.dayKey] = {
       ...day,
       situacao: 'com_aulas',
-      periodos,
+      periodos: [...periodos].sort((left, right) => (left.posicao || 99) - (right.posicao || 99)),
     };
   }
   return result;
+};
+
+export const getDayTurnSummaries = (day) => {
+  const dayHasLessons = (day?.periodos || []).some(hasVisibleLesson);
+  return TURN_DEFINITIONS.map((turn) => {
+    const lessons = (day?.periodos || []).filter((period) => turnFor(period) === turn.key && hasVisibleLesson(period)).length;
+    return {
+      ...turn,
+      lessons,
+      status: lessons > 0 ? 'com_aulas' : dayHasLessons ? 'folga' : 'vazio',
+    };
+  });
 };
 
 export const summarizeSharing = ({ schedules, pairDecisions: _pairDecisions, suggestions = [] }) => {

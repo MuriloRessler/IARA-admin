@@ -159,6 +159,10 @@ button.workflow-card { cursor: pointer; font: inherit; }
 .day-card--pendente { border-left-color: #d48679; }
 .day-card__header { align-items: start; display: flex; justify-content: space-between; margin-bottom: 0.9rem; }
 .day-card h3 { color: var(--color-text); font-size: 0.9rem; margin-bottom: 0.5rem; }
+.turn-summary { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: -0.25rem 0 0.8rem; }
+.turn-summary__item { background: #e4f4e9; border-radius: 0.5rem; color: #28724d; font-size: 0.7rem; padding: 0.4rem 0.55rem; }
+.turn-summary__item--folga { background: #f6f1d9; color: #756b35; }
+.turn-summary__item--vazio { background: #f7faf8; color: var(--color-muted); }
 .status-chip, .validation-badge { border-radius: 999px; display: inline-block; font-size: 0.65rem; font-weight: 750; padding: 0.28rem 0.5rem; }
 .status-chip--com_aulas, .validation-badge--valid { background: #e4f4e9; color: #28724d; }
 .status-chip--compartilhado { background: #e6f0f7; color: #356b8d; }
@@ -302,6 +306,7 @@ button.workflow-card { cursor: pointer; font: inherit; }
 .publication-database, .publication-issues, .publication-warnings, .publication-confirmation, .publication-report, .publication-record-preview { border-radius: 0.6rem; padding: 0.8rem; }
 .publication-database--ready { background: #edf9f0; border: 1px solid #9bcbaa; color: #155e36; }
 .publication-database--blocked, .publication-issues { background: #fff1f1; border: 1px solid #e7a5a5; color: #8a2525; }
+.publication-button-status { background: #fff7e4; border-radius: 0.55rem; color: #756b35; font-size: 0.72rem; line-height: 1.45; margin: 0.6rem 0 0; padding: 0.65rem 0.8rem; }
 .publication-warnings { background: #fff8e8; border: 1px solid #e7c66f; color: #755b18; }
 .publication-issues ul, .publication-warnings ul { margin: 0.45rem 0 0; padding-left: 1.15rem; }
 .publication-review-summary, .review-summary { background: #f0f8f2; border: 1px solid #a9cfb2; border-radius: 0.6rem; color: #285b38; padding: 0.75rem 0.85rem; }

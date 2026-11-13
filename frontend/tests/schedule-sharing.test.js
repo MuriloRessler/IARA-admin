@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySharingSuggestions, buildSharingSuggestions, createSharingState, getAutomaticPairDecisions, getPairCatalog } from '../../shared/schedule-sharing.js';
+import { applySharingSuggestions, buildSharingSuggestions, createSharingState, getAutomaticPairDecisions, getDayTurnSummaries, getPairCatalog } from '../../shared/schedule-sharing.js';
 import { createEmptySchedule, scheduleKey } from '../src/services/schedule-model.js';
 import { parseDraft, serializeDraft } from '../src/services/drafts.js';
 
@@ -50,18 +50,20 @@ describe('period-by-period schedule sharing', () => {
     expect(getAutomaticPairDecisions({ schedules }).pairs).toHaveLength(24);
   });
 
-  it('complements both directions from original periods without grouping or duplication', () => {
+  it('preserves a legitimate morning or afternoon folga in both directions', () => {
     const first = schedule('61 1', { 1: 'Matemática', 2: 'Matemática', 3: 'Sites', 4: 'Sites', 5: 'Sites' });
     const second = schedule('61 2', { 6: 'Educação Física', 7: 'Modelagem', 8: 'Modelagem', 9: 'Modelagem', 10: 'Modelagem' });
     const schedules = { [scheduleKey(first.curso, first.turma)]: first, [scheduleKey(second.curso, second.turma)]: second };
     const sharing = { ...createSharingState(), pairDecisions: { [pairDecision().id]: pairDecision() } };
     const suggestions = buildSharingSuggestions({ schedules, sharing });
-    expect(suggestions).toHaveLength(10);
-    expect(suggestions.filter((suggestion) => suggestion.target.turma === '61 1')).toHaveLength(5);
-    expect(suggestions.filter((suggestion) => suggestion.target.turma === '61 2')).toHaveLength(5);
+    expect(suggestions).toHaveLength(0);
+    expect(suggestions.filter((suggestion) => suggestion.target.turma === '61 1')).toHaveLength(0);
+    expect(suggestions.filter((suggestion) => suggestion.target.turma === '61 2')).toHaveLength(0);
     const consolidated = applySharingSuggestions(schedules, suggestions);
-    expect(consolidated['Informática::61 1'].dias.quinta.periodos[5].compartilhamentoStatus).toBe('automatico');
-    expect(consolidated['Informática::61 2'].dias.quinta.periodos[0].disciplina).toBe('Matemática');
+    expect(consolidated['Informática::61 1'].dias.quinta.periodos.slice(5).every((period) => !period.disciplina)).toBe(true);
+    expect(consolidated['Informática::61 2'].dias.quinta.periodos.slice(0, 5).every((period) => !period.disciplina)).toBe(true);
+    expect(getDayTurnSummaries(consolidated['Informática::61 1'].dias.quinta).map(({ status, lessons }) => ({ status, lessons }))).toEqual([{ status: 'com_aulas', lessons: 5 }, { status: 'folga', lessons: 0 }]);
+    expect(getDayTurnSummaries(consolidated['Informática::61 2'].dias.quinta).map(({ status, lessons }) => ({ status, lessons }))).toEqual([{ status: 'folga', lessons: 0 }, { status: 'com_aulas', lessons: 5 }]);
     expect(applySharingSuggestions(consolidated, suggestions)['Informática::61 2'].dias.quinta.periodos).toHaveLength(10);
   });
 
@@ -74,14 +76,15 @@ describe('period-by-period schedule sharing', () => {
     expect(suggestions.some((suggestion) => suggestion.inicio === '07:30')).toBe(false);
   });
 
-  it('preserves two own 72B lessons and proposes the other eight from 72A', () => {
+  it('preserves two own 72B lessons and proposes only the other three in the active turn', () => {
     const source = schedule('72A', Object.fromEntries(Array.from({ length: 10 }, (_item, index) => [index + 1, `Química ${index + 1}`])), 'Química');
     const target = schedule('72B', { 1: 'Processos Industriais', 2: 'Processos Industriais' }, 'Química');
     const schedules = { [scheduleKey(source.curso, source.turma)]: source, [scheduleKey(target.curso, target.turma)]: target };
     const decision = { ...pairDecision('72A', '72B'), first: { curso: 'Química', turma: '72A' }, second: { curso: 'Química', turma: '72B' }, id: 'Química::72A<->Química::72B' };
     const suggestions = buildSharingSuggestions({ schedules, sharing: { ...createSharingState(), pairDecisions: { [decision.id]: decision } } });
-    expect(suggestions.filter((suggestion) => suggestion.target.turma === '72B')).toHaveLength(8);
+    expect(suggestions.filter((suggestion) => suggestion.target.turma === '72B')).toHaveLength(3);
     expect(suggestions.find((suggestion) => suggestion.target.turma === '72B' && suggestion.inicio === '07:30')).toBeUndefined();
+    expect(suggestions.some((suggestion) => suggestion.target.turma === '72B' && suggestion.posicao > 5)).toBe(false);
   });
 
   it('complements a completely empty 11B day with only the ten original 11A lessons', () => {
@@ -102,14 +105,30 @@ describe('period-by-period schedule sharing', () => {
     expect(suggestions.filter((suggestion) => suggestion.target.turma === '11B')).toHaveLength(5);
   });
 
-  it('complements alternating morning and afternoon lessons in both 63 1 and 63 2', () => {
+  it('does not complement 63 1 and 63 2 when each has a different shift', () => {
     const first = schedule('63 1', { 1: 'Matemática', 2: 'Matemática', 3: 'Criação de Sites', 4: 'Criação de Sites', 5: 'Criação de Sites' });
     const second = schedule('63 2', { 6: 'Educação Física', 7: 'Modelagem', 8: 'Modelagem', 9: 'Modelagem', 10: 'Modelagem' });
     const schedules = { [scheduleKey(first.curso, first.turma)]: first, [scheduleKey(second.curso, second.turma)]: second };
     const decision = pairDecision('63 1', '63 2');
     const suggestions = buildSharingSuggestions({ schedules, sharing: { ...createSharingState(), pairDecisions: { [decision.id]: decision } } });
-    expect(suggestions.filter((suggestion) => suggestion.target.turma === '63 1')).toHaveLength(5);
-    expect(suggestions.filter((suggestion) => suggestion.target.turma === '63 2')).toHaveLength(5);
+    expect(suggestions).toHaveLength(0);
+  });
+
+  it('allows complementary positions in both active shifts when the target has one to three own lessons', () => {
+    const source = schedule('61 1', Object.fromEntries(Array.from({ length: 10 }, (_item, index) => [index + 1, `Parceira ${index + 1}`])));
+    const target = schedule('61 2', { 1: 'Manhã própria', 6: 'Tarde própria' });
+    const schedules = { [scheduleKey(source.curso, source.turma)]: source, [scheduleKey(target.curso, target.turma)]: target };
+    const suggestions = buildSharingSuggestions({ schedules });
+    expect(suggestions.filter((suggestion) => suggestion.target.turma === '61 2')).toHaveLength(8);
+    expect(suggestions.some((suggestion) => suggestion.target.turma === '61 2' && suggestion.posicao <= 5)).toBe(true);
+    expect(suggestions.some((suggestion) => suggestion.target.turma === '61 2' && suggestion.posicao > 5)).toBe(true);
+  });
+
+  it('does not complement a day with four or more own lessons', () => {
+    const source = schedule('61 1', Object.fromEntries(Array.from({ length: 10 }, (_item, index) => [index + 1, `Parceira ${index + 1}`])));
+    const target = schedule('61 2', { 1: 'Própria 1', 2: 'Própria 2', 3: 'Própria 3', 4: 'Própria 4' });
+    const schedules = { [scheduleKey(source.curso, source.turma)]: source, [scheduleKey(target.curso, target.turma)]: target };
+    expect(buildSharingSuggestions({ schedules }).filter((suggestion) => suggestion.target.turma === '61 2')).toHaveLength(0);
   });
 
   it('allows an explicit custom partner while preserving the no-auto-pair rule', () => {
@@ -159,6 +178,18 @@ describe('period-by-period schedule sharing', () => {
     const target = next.find((suggestion) => suggestion.target.turma === '11B');
     expect(target.status).toBe('automatico');
     expect(target.period.disciplina).toBe('Atualizada');
+  });
+
+  it('reconciles stale automatic complements without removing manual edits', () => {
+    const source = schedule('63 1', { 1: 'Origem manhã', 6: 'Origem tarde' });
+    const target = schedule('63 2', { 1: '', 6: '' });
+    target.dias.quinta.periodos[5] = { ...target.dias.quinta.periodos[5], disciplina: 'Correção manual', professor: 'Professor', compartilhamentoStatus: 'substituida', manualOverride: true };
+    target.dias.quinta.periodos[0] = { ...target.dias.quinta.periodos[0], disciplina: 'Aula antiga', professor: 'Professor', compartilhamentoStatus: 'automatico', origemEdicao: 'compartilhamento_automatico' };
+    const schedules = { [scheduleKey(source.curso, source.turma)]: source, [scheduleKey(target.curso, target.turma)]: target };
+    const consolidated = applySharingSuggestions(schedules, buildSharingSuggestions({ schedules }));
+    const periods = consolidated['Informática::63 2'].dias.quinta.periodos;
+    expect(periods.some((item) => item.disciplina === 'Aula antiga')).toBe(false);
+    expect(periods.some((item) => item.disciplina === 'Correção manual')).toBe(true);
   });
 
   it('round-trips confirmed pair decisions in draft version 3', () => {

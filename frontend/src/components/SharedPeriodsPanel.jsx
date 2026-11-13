@@ -2,7 +2,9 @@ const keyOf = (entry) => `${entry.curso}::${entry.turma}`;
 const dayLabels = { segunda: 'Segunda-feira', terca: 'Terça-feira', quarta: 'Quarta-feira', quinta: 'Quinta-feira', sexta: 'Sexta-feira' };
 
 const hasOwnLesson = (period) => Boolean(period
-  && period.estado !== 'vazio_documento'
+  && period.compartilhamentoStatus !== 'automatico'
+  && period.origemEdicao !== 'compartilhamento_automatico'
+  && (period.estado !== 'vazio_documento' || period.manualOverride || period.compartilhamentoStatus === 'substituida' || period.origemEdicao === 'manual')
   && (period.disciplina?.trim() || period.professor?.trim() || period.textoOriginal?.trim()));
 
 const countOwnLessons = (schedule) => Object.values(schedule?.dias || {})
