@@ -35,7 +35,8 @@ describe('catalog and schedule domain', () => {
     expect(text).toContain('TURMA: 61 1');
     expect(text).toContain('SEGUNDA-FEIRA');
     expect(text).toContain('07:30 - Matemática | Professor: Ana | Sala: A1');
-    expect(text).toContain('SEM AULAS CONFIRMADAS');
+    expect(text).not.toContain('SEM AULAS CONFIRMADAS');
+    expect(text).not.toContain('TERÇA-FEIRA');
   });
 
   it('blocks a schedule with pending days and overlapping periods', () => {
@@ -58,7 +59,7 @@ describe('catalog and schedule domain', () => {
     expect(validation.issues.some((issue) => issue.message.includes('marcado como revisado'))).toBe(true);
   });
 
-  it('keeps repeated periods and document-empty positions in the text preview', () => {
+  it('keeps repeated periods and omits document-empty positions from the text preview', () => {
     const schedule = scheduleWithConfirmedDays();
     schedule.dias.segunda.periodos = [
       { id: 'one', posicao: 1, estado: 'reconhecido', inicio: '13:00', disciplina: 'Química', professor: '', sala: '' },
@@ -66,9 +67,12 @@ describe('catalog and schedule domain', () => {
       { id: 'three', posicao: 3, estado: 'vazio_documento', inicio: '14:40', disciplina: '', professor: '', sala: '' },
     ];
     const schedules = { [scheduleKey(schedule.curso, schedule.turma)]: schedule };
+    const periodCountBeforeFormatting = schedule.dias.segunda.periodos.length;
     const text = formatScheduleText(schedule, schedules);
     expect(text.match(/Química/g)).toHaveLength(2);
-    expect(text).toContain('CÉLULA VAZIA NO DOCUMENTO');
+    expect(text).not.toContain('CÉLULA VAZIA NO DOCUMENTO');
+    expect(text).not.toContain('POSIÇÃO');
+    expect(schedule.dias.segunda.periodos).toHaveLength(periodCountBeforeFormatting);
     expect(parseDraft(serializeDraft(schedules)).schedules[scheduleKey(schedule.curso, schedule.turma)].dias.segunda.periodos).toHaveLength(3);
   });
 
@@ -81,7 +85,8 @@ describe('catalog and schedule domain', () => {
       [scheduleKey(target.curso, target.turma)]: target,
     };
     expect(validateSchedule(target, schedules).valid).toBe(true);
-    expect(formatScheduleText(target, schedules)).toContain('AULAS COMPARTILHADAS DE: 61 1');
+    expect(formatScheduleText(target, schedules)).toContain('07:30 - Matemática | Professor: Ana | Sala: A1');
+    expect(formatScheduleText(target, schedules)).not.toContain('AULAS COMPARTILHADAS DE: 61 1');
   });
 
   it('rejects circular shared-day references', () => {

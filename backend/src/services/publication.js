@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { courses, getAllClasses, totalClasses } from '../config/courses.js';
+import { findScheduleTextPlaceholders, formatScheduleText as formatSharedScheduleText, isPublishablePeriod } from '../../../shared/schedule-text.js';
 
 export const PUBLICATION_TABLE = 'public."Horarios"';
 export const PUBLICATION_VERSION = 1;
@@ -18,12 +19,6 @@ const BLOCKING_STATES = new Set(['nao_reconhecido', 'parcial']);
 const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
 const scheduleKey = (course, classCode) => `${course}::${classCode}`;
 const isValidTime = (value) => TIME_PATTERN.test(value || '');
-const timeToMinutes = (value) => {
-  if (!isValidTime(value)) return null;
-  const [hours, minutes] = value.split(':').map(Number);
-  return hours * 60 + minutes;
-};
-
 const issue = (code, path, message) => ({ code, path, message });
 
 const createReviewState = () => ({
@@ -120,38 +115,18 @@ const sourceDay = (schedules, schedule, dayKey) => {
   return { periods: current?.dias?.[dayKey]?.periodos || [], inherited: true };
 };
 
-const formatPeriod = (period) => {
-  if (period.estado === 'vazio_documento') return `POSIÇÃO ${period.posicao || '?'}: CÉLULA VAZIA NO DOCUMENTO`;
-  const details = [period.professor && `Professor: ${period.professor}`, period.sala && `Sala: ${period.sala}`]
-    .filter(Boolean)
-    .join(' | ');
-  return `${period.inicio} - ${period.disciplina}${details ? ` | ${details}` : ''}`;
+export const formatPublicationText = (schedule, schedules) => {
+  return formatSharedScheduleText({ schedule, resolveDay: (dayKey) => sourceDay(schedules, schedule, dayKey) });
 };
 
-export const formatPublicationText = (schedule, schedules) => {
-  const lines = [`TURMA: ${schedule.turma}`, '', `CURSO: ${schedule.curso}`];
-  for (const [dayKey, label] of DAY_ORDER) {
-    const day = schedule.dias[dayKey];
-    lines.push('', label);
-    if (!day) {
-      lines.push('DIA NÃO CONFIGURADO');
-      continue;
-    }
-    if (day.situacao === 'sem_aulas') {
-      lines.push('SEM AULAS CONFIRMADAS');
-      continue;
-    }
-    const effective = sourceDay(schedules, schedule, dayKey);
-    effective.periods
-      .slice()
-      .sort((left, right) => (timeToMinutes(left.inicio) ?? 0) - (timeToMinutes(right.inicio) ?? 0))
-      .forEach((period) => lines.push(formatPeriod(period)));
-  }
-  return lines.join('\n');
-};
+export const validatePublicationText = (text) => findScheduleTextPlaceholders(text).map((placeholder) => issue(
+  'PUBLICATION_TEXT_PLACEHOLDER',
+  'horario',
+  `O texto final contém um marcador técnico não publicável: ${placeholder}.`,
+));
 
 const classifyPeriod = (period) => {
-  if (period.estado === 'vazio_documento') return 'empty';
+  if (!isPublishablePeriod(period)) return 'empty';
   if (period.manualOverride || period.compartilhamentoStatus === 'substituida') return 'manual';
   if (['automatico', 'sugerida', 'confirmada'].includes(period.compartilhamentoStatus)) return 'shared';
   return 'own';
@@ -252,6 +227,7 @@ export const validatePublicationSchedules = (schedules) => {
     DAY_ORDER.forEach(([dayKey]) => validateDay(schedule, dayKey, schedule.dias[dayKey], schedules, issues, warnings, reviewState));
     const horario = formatPublicationText(schedule, schedules);
     if (!horario.trim()) issues.push(issue('EMPTY_TEXT', key, 'A turma não gerou texto publicável.'));
+    issues.push(...validatePublicationText(horario).map((item) => ({ ...item, path: `${key}.${item.path}` })));
     records.push({ turma: schedule.turma, curso: schedule.curso, horario });
   });
   expected.forEach((_value, key) => {

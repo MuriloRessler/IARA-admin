@@ -1,5 +1,6 @@
-import { DAYS, getEffectiveDay, scheduleKey } from './schedule-model.js';
+import { getEffectiveDay, scheduleKey } from './schedule-model.js';
 import { validateSchedule } from './schedule-validation.js';
+import { formatScheduleText as formatSharedScheduleText } from '../../../shared/schedule-text.js';
 
 export class ScheduleFormatError extends Error {
   constructor(issues) {
@@ -9,34 +10,11 @@ export class ScheduleFormatError extends Error {
   }
 }
 
-const formatPeriod = (period) => {
-  if (period.estado === 'vazio_documento') return `POSIÇÃO ${period.posicao || '?'}: CÉLULA VAZIA NO DOCUMENTO`;
-  const details = [period.professor && `Professor: ${period.professor}`, period.sala && `Sala: ${period.sala}`]
-    .filter(Boolean)
-    .join(' | ');
-  return `${period.inicio} - ${period.disciplina}${details ? ` | ${details}` : ''}`;
-};
-
 export const formatScheduleText = (schedule, schedules) => {
   const validation = validateSchedule(schedule, schedules);
   if (!validation.valid) throw new ScheduleFormatError(validation.issues);
-
-  const lines = [`TURMA: ${schedule.turma}`, '', `CURSO: ${schedule.curso}`];
-  DAYS.forEach(({ key, label }) => {
-    const day = schedule.dias[key];
-    lines.push('', label);
-    if (day.situacao === 'sem_aulas') {
-      lines.push('SEM AULAS CONFIRMADAS');
-      return;
-    }
-    const effective = getEffectiveDay(schedules, scheduleKey(schedule.curso, schedule.turma), key);
-    if (day.situacao === 'compartilhado') {
-      lines.push(`AULAS COMPARTILHADAS DE: ${day.compartilhamento.turma} (${day.compartilhamento.curso})`);
-    }
-    effective.periods
-      .slice()
-      .sort((left, right) => left.inicio.localeCompare(right.inicio))
-      .forEach((period) => lines.push(formatPeriod(period)));
+  return formatSharedScheduleText({
+    schedule,
+    resolveDay: (dayKey) => getEffectiveDay(schedules, scheduleKey(schedule.curso, schedule.turma), dayKey),
   });
-  return lines.join('\n');
 };

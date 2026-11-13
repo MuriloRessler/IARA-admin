@@ -3,7 +3,7 @@ import test from 'node:test';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { courses, totalClasses } from '../src/config/courses.js';
-import { comparePublicationRecords, formatPublicationText, recordsChecksum, validatePublicationSchedules } from '../src/services/publication.js';
+import { comparePublicationRecords, formatPublicationText, recordsChecksum, validatePublicationText, validatePublicationSchedules } from '../src/services/publication.js';
 import { createPublicationRepository } from '../src/services/publication-repository.js';
 
 const dayKeys = ['segunda', 'terca', 'quarta', 'quinta', 'sexta'];
@@ -85,6 +85,7 @@ test('publication comparison preserves ids and keeps legacy records outside the 
 test('publication routes preview, backup and publish with administrative authorization and no duplicate rows', async () => {
   let records = [{ id: 10, turma: '61 1', curso: 'Informática', horario: 'old' }, { id: 11, turma: null, curso: 'Informática', horario: 'legacy-url' }];
   let nextId = 12;
+  let upsertedRecords = null;
   const repository = {
     isConfigured: true,
     publicationEnabled: true,
@@ -95,6 +96,7 @@ test('publication routes preview, backup and publish with administrative authori
     async readAllRecords() { return records; },
     async readPublicationRecords() { return records.map(({ id, turma, curso, horario }) => ({ id, turma, curso, horario })); },
     async upsert(nextRecords) {
+      upsertedRecords = nextRecords;
       nextRecords.forEach((next) => {
         const index = records.findIndex((record) => record.turma === next.turma);
         if (index >= 0) records[index] = { ...records[index], ...next };
@@ -130,6 +132,7 @@ test('publication routes preview, backup and publish with administrative authori
   assert.equal(published.statusCode, 200);
   assert.equal(published.body.success, true);
   assert.equal(published.body.summary.turmas, 49);
+  assert.deepEqual(upsertedRecords, preview.body.records);
   assert.equal(records.filter((record) => record.turma === '61 1')[0].id, 10);
   assert.equal(new Set(records.filter((record) => record.turma).map((record) => record.turma)).size, 49);
 
@@ -226,6 +229,66 @@ test('publication formatter resolves a whole-day shared reference without emitti
   const text = formatPublicationText(target, { 'Informática::61 1': source, 'Informática::61 2': target });
   assert.match(text, /07:30 - Programação/);
   assert.doesNotMatch(text, /AULAS COMPARTILHADAS DE/);
+});
+
+test('publication formatter omits empty periods and days without changing the editor grid', () => {
+  const schedule = emptySchedule('Informática', '61 1');
+  schedule.dias.segunda = {
+    situacao: 'com_aulas',
+    periodos: [
+      { posicao: 1, inicio: '07:30', estado: 'reconhecido', disciplina: 'Matemática', professor: 'Ana', sala: '', revisao: 'revisado' },
+      { posicao: 2, inicio: '08:20', estado: 'vazio_documento', disciplina: '', professor: '', sala: '', revisao: 'revisado' },
+      { posicao: 3, inicio: '09:10', estado: 'reconhecido', disciplina: 'Química', professor: '', sala: '', revisao: 'revisado' },
+    ],
+    compartilhamento: null,
+    revisao: 'revisado',
+    avisos: [],
+  };
+  const schedules = { 'Informática::61 1': schedule };
+  const periodCountBeforeFormatting = schedule.dias.segunda.periodos.length;
+  const text = formatPublicationText(schedule, schedules);
+
+  assert.match(text, /07:30 - Matemática \| Professor: Ana/);
+  assert.match(text, /09:10 - Química/);
+  assert.doesNotMatch(text, /POSIÇÃO|CÉLULA VAZIA NO DOCUMENTO/);
+  assert.doesNotMatch(text, /TERÇA-FEIRA/);
+  assert.equal(schedule.dias.segunda.periodos.length, periodCountBeforeFormatting);
+});
+
+test('publication formatter preserves manually added lessons that replaced an empty cell', () => {
+  const schedule = emptySchedule('Informática', '61 1');
+  schedule.dias.segunda = {
+    situacao: 'com_aulas',
+    periodos: [{ posicao: 2, inicio: '08:20', estado: 'vazio_documento', disciplina: 'Projeto', professor: 'Bia', sala: '', origemEdicao: 'manual', revisao: 'revisado' }],
+    compartilhamento: null,
+    revisao: 'revisado',
+    avisos: [],
+  };
+  const text = formatPublicationText(schedule, { 'Informática::61 1': schedule });
+  assert.match(text, /08:20 - Projeto \| Professor: Bia/);
+  assert.doesNotMatch(text, /CÉLULA VAZIA NO DOCUMENTO/);
+});
+
+test('publication text validation catches only exact technical placeholders', () => {
+  assert.equal(validatePublicationText('07:30 - CÉLULA VAZIA NO DOCUMENTO').length, 0);
+  assert.equal(validatePublicationText('POSIÇÃO 6: CÉLULA VAZIA NO DOCUMENTO').length, 1);
+});
+
+test('publication keeps unreadable cells as blocking validation issues', () => {
+  const schedules = completeSchedules();
+  schedules['Informática::61 1'].dias.segunda.periodos = [{
+    posicao: 1,
+    inicio: '07:30',
+    estado: 'nao_reconhecido',
+    disciplina: '',
+    professor: '',
+    sala: '',
+    revisao: 'revisado',
+  }];
+  const result = validatePublicationSchedules(schedules);
+  assert.equal(result.valid, false);
+  assert.ok(result.issues.some((item) => item.code === 'UNRECOGNIZED_PERIOD'));
+  assert.doesNotMatch(result.records.find((record) => record.turma === '61 1').horario, /CÉLULA VAZIA NO DOCUMENTO/);
 });
 
 test('publication repository reports a schema without turma and uses turma as the upsert conflict key', async () => {
