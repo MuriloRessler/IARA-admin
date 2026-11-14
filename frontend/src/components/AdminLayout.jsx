@@ -4,6 +4,7 @@ const navigation = [
   { key: 'overview', label: 'Visão geral' },
   { key: 'import', label: 'Importar horários' },
   { key: 'review', label: 'Conferir horários' },
+  { key: 'printings', label: 'Gerenciamento de Impressões' },
 ];
 
 export function AdminLayout({ admin, activeView, onNavigate, onLogout, children }) {
@@ -15,7 +16,7 @@ export function AdminLayout({ admin, activeView, onNavigate, onLogout, children 
         </button>
         <div className="brand-copy">
           <p className="eyebrow">Administração escolar</p>
-          <p className="header-subtitle">Gerenciador de Horários</p>
+          <p className="header-subtitle">Horários e impressões</p>
         </div>
         <div className="admin-actions">
           <div className="admin-identity">

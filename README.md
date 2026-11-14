@@ -1,5 +1,7 @@
 # IARA-admin
 
+O módulo **Gerenciamento de Impressões** está disponível na navegação administrativa: fila de pedidos confirmados, histórico, download temporário e marcação como impresso com confirmação humana. Reutiliza a autenticação e o cliente administrativo existentes. Configure `PRINTING_STORAGE_BUCKET` no backend e confira o esquema real antes do uso; consulte [configuração e diagnóstico de impressões](supabase/PRINTING.md). Não foram aplicadas migrações nem criados registros automaticamente.
+
 O IARA-admin é o painel administrativo da IARA (Inteligência Artificial de Resposta e Atendimento), um chatbot de atendimento escolar. O painel será responsável pelo gerenciamento dos horários escolares consultados pelo chatbot.
 
 ## Objetivo

@@ -4,6 +4,7 @@ import { healthRouter } from './health.routes.js';
 import { createExtractionRouter } from './extraction.routes.js';
 import { createHtmlImportRouter } from './html-import.routes.js';
 import { createPublicationRouter } from './publication.routes.js';
+import { createPrintingRouter } from './printing.routes.js';
 
 export const createApiRouter = (options = {}) => {
   const router = Router();
@@ -12,6 +13,7 @@ export const createApiRouter = (options = {}) => {
   router.use('/schedules', createExtractionRouter(options));
   router.use('/schedules', createHtmlImportRouter(options));
   router.use('/schedules/publication', createPublicationRouter(options));
+  router.use('/printings', createPrintingRouter(options));
   return router;
 };
 

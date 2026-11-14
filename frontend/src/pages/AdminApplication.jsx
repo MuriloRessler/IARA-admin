@@ -8,6 +8,7 @@ import { applySharingSuggestions, buildSharingSuggestions, createSharingState, g
 import { Dashboard } from './Dashboard.jsx';
 import { ImportPage } from './ImportPage.jsx';
 import { ScheduleReviewPage } from './ScheduleReviewPage.jsx';
+import { PrintingPage } from './PrintingPage.jsx';
 
 const initialCourse = courses[0].name;
 const initialClass = courses[0].classes[0];
@@ -223,7 +224,9 @@ export function AdminApplication({ admin, accessToken, onLogout }) {
     return true;
   };
 
-  const content = activeView === 'overview'
+  const content = activeView === 'printings'
+    ? <PrintingPage accessToken={accessToken} />
+    : activeView === 'overview'
     ? <Dashboard totalClasses={totalClasses} onNavigate={setActiveView} />
     : activeView === 'import'
       ? <ImportPage accessToken={accessToken} file={selectedFile} onFileChange={setSelectedFile} onRemoveFile={() => setSelectedFile(null)} onContinue={() => setActiveView('review')} onImportExtracted={importExtractedSchedules} />

@@ -23,6 +23,7 @@ export const env = {
   supabaseHorariosTable: process.env.SUPABASE_HORARIOS_TABLE || 'Horarios',
   adminUserId: process.env.ADMIN_USER_ID || '',
   publicationEnabled: process.env.PUBLICATION_ENABLED === 'true',
+  printingStorageBucket: process.env.PRINTING_STORAGE_BUCKET || '',
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   openaiModel: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
   pdfMaxSizeMb: Number(process.env.PDF_MAX_SIZE_MB) || 20,
