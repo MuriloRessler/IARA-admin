@@ -14,6 +14,9 @@ export const createApp = (options = {}) => {
         callback(null, true);
         return;
       }
+      console.error('[CORS] Origem recebida:', JSON.stringify(origin));
+      console.error('[CORS] Origens permitidas:', JSON.stringify(appConfig.allowedOrigins));
+
       callback(new Error('Origin is not allowed by CORS'));
     },
   }));
