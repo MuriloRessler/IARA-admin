@@ -1,7 +1,7 @@
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+import { getApiBaseUrl } from '../config/runtime.js';
 
 export const getCurrentAdmin = async (accessToken) => {
-  const response = await fetch(`${apiBaseUrl}/auth/me`, {
+  const response = await fetch(`${getApiBaseUrl()}/auth/me`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -21,7 +21,7 @@ export const importHtmlSchedules = async (file, accessToken) => {
   body.append('file', file);
   let response;
   try {
-    response = await fetch(`${apiBaseUrl}/schedules/import-html`, {
+    response = await fetch(`${getApiBaseUrl()}/schedules/import-html`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}` },
       body,
@@ -50,7 +50,7 @@ const publicationRequest = async (path, accessToken, options = {}) => {
   const timeoutId = setTimeout(() => controller.abort(), PUBLICATION_TIMEOUT_MS);
   let response;
   try {
-    response = await fetch(`${apiBaseUrl}/schedules/publication/${path}`, {
+    response = await fetch(`${getApiBaseUrl()}/schedules/publication/${path}`, {
       ...options,
       signal: controller.signal,
       headers: {

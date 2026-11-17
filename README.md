@@ -86,6 +86,83 @@ npm test                   # testes automatizados
 
 Com o Supabase configurado, acesse `http://localhost:5173`, informe as credenciais do administrador e use o botão **Sair** para encerrar a sessão. Sem configuração do Supabase, a interface informa que o login está pendente de configuração; não há autenticação simulada.
 
+## Implantação no Render
+
+O repositório é um monorepo npm com `frontend`, `backend` e `shared`. Para preservar o `package-lock.json` da raiz e os imports do catálogo compartilhado, configure os dois serviços do Render com a raiz do repositório como **Root Directory** (deixe o campo vazio ou use `.`).
+
+### Frontend — Static Site
+
+- **Root Directory:** `.`
+- **Build Command:** `npm ci && npm run build --workspace frontend`
+- **Publish Directory:** `frontend/dist`
+- **Start Command:** não se aplica a Static Site
+
+Variáveis públicas do serviço:
+
+```env
+VITE_API_BASE_URL=https://SEU-BACKEND.onrender.com/api
+VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=...
+```
+
+`VITE_API_BASE_URL` deve apontar para a URL pública do Web Service, incluindo `/api`. O build do Vite incorpora as variáveis `VITE_*`; depois de alterá-las, faça um novo deploy. A `SUPABASE_SECRET_KEY` não deve ser cadastrada neste serviço.
+
+### Backend — Web Service
+
+- **Root Directory:** `.`
+- **Build Command:** `npm ci`
+- **Start Command:** `npm run start --workspace backend`
+
+O Render fornece `PORT` automaticamente. O servidor escuta nessa porta em `0.0.0.0`, como exigido pelo ambiente de hospedagem.
+
+Variáveis do serviço:
+
+```env
+FRONTEND_URL=https://SEU-FRONTEND.onrender.com
+SUPABASE_URL=https://SEU-PROJETO.supabase.co
+SUPABASE_PUBLISHABLE_KEY=...
+SUPABASE_SECRET_KEY=...
+ADMIN_USER_ID=UUID_DO_ADMINISTRADOR
+SUPABASE_HORARIOS_TABLE=Horarios
+PRINTING_STORAGE_BUCKET=nome-do-bucket
+PUBLICATION_ENABLED=false
+EXTRACTION_ENGINE=local
+PDF_MAX_SIZE_MB=20
+PDF_MAX_PAGES=30
+EXTRACTION_TIMEOUT_MS=120000
+HTML_MAX_SIZE_MB=10
+PDF_RENDER_SCALE=1.5
+OCR_LANGUAGES=por+eng
+OCR_CACHE_PATH=/tmp/iara-admin-ocr
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+`OPENAI_API_KEY` é opcional e só deve ser configurada se o provider de compatibilidade for habilitado conscientemente. `PRINTING_STORAGE_BUCKET` deve conter o bucket já existente no Supabase Storage; os documentos de impressão não são gravados no disco local do Render. A API mantém somente o processamento temporário em memória e gera URLs assinadas pelo Supabase. O cache de OCR, quando usado, é apenas cache de runtime e pode ser perdido quando a instância for reiniciada.
+
+`FRONTEND_URL` aceita uma lista separada por vírgulas para permitir, por exemplo, o domínio do Render e um domínio próprio. Informe a origem completa, sem barra final. O backend rejeita origens diferentes das autorizadas pelo CORS. A autenticação continua exigindo o Bearer token do Supabase e a autorização continua comparando o UUID com `ADMIN_USER_ID`.
+
+### Supabase Auth
+
+Depois de conhecer a URL final do Static Site, em **Authentication > URL Configuration** do projeto Supabase:
+
+1. Defina **Site URL** como `https://SEU-FRONTEND.onrender.com` (ou o domínio próprio definitivo).
+2. Adicione como **Redirect URL** o mesmo endereço e, se necessário para desenvolvimento, `http://localhost:5173`.
+3. Mantenha o usuário administrador criado manualmente no Supabase Auth e use seu UUID em `ADMIN_USER_ID`.
+
+O frontend recebe apenas `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. A chave `SUPABASE_SECRET_KEY` é lida somente pelo backend e nunca é enviada ao navegador.
+
+### Navegação e rewrite
+
+O frontend atual não usa React Router nem URLs de rota: a navegação administrativa é controlada por estado dentro da aplicação. Portanto, nenhum rewrite é necessário para o funcionamento atual. Se o projeto passar a usar `BrowserRouter` no futuro, crie no Static Site do Render uma regra **Rewrite** de `/*` para `/index.html`, antes de publicar rotas profundas.
+
+### Ordem recomendada de publicação
+
+1. Crie o Web Service com o comando do backend e cadastre as variáveis privadas, incluindo `FRONTEND_URL` provisoriamente com a URL esperada do Static Site.
+2. Crie o Static Site com o comando do frontend e use a URL pública do backend em `VITE_API_BASE_URL`.
+3. Atualize `FRONTEND_URL` com a URL final exata do frontend e faça redeploy do backend.
+4. Configure as URLs do Supabase Auth e teste `GET https://SEU-BACKEND.onrender.com/api/health`.
+5. Valide login, autorização administrativa, rascunhos locais, exportação JSON e publicação somente com confirmação humana. Nenhuma migração ou publicação no Supabase é executada por este procedimento.
+
 ## Segurança da autenticação
 
 - A sessão é mantida e renovada pelo SDK oficial do Supabase.

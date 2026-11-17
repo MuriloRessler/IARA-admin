@@ -1,8 +1,9 @@
-const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+import { getApiBaseUrl } from '../config/runtime.js';
+
 async function request(path, accessToken, options = {}) {
   let response;
   try {
-    response = await fetch(`${base}/printings${path}`, {
+    response = await fetch(`${getApiBaseUrl()}/printings${path}`, {
       ...options, signal: options.signal || AbortSignal.timeout(30000), cache: 'no-store',
       headers: { Authorization: `Bearer ${accessToken}`, ...(options.body ? { 'Content-Type': 'application/json' } : {}) },
     });
